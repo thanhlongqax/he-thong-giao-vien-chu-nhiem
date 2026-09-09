@@ -101,7 +101,7 @@ function seed() {
       term: "Học kỳ 1",
       week: 8,
       gmailNotify: true,
-      gmail: "gvcn.demo@gmail.com"
+      gmail: ""
     },
     teacher: { name: "Nguyễn Thị Hồng", username: "gv", password: "123456" },
     classes, students, subjects, assigns, attendance, leaves,
@@ -155,7 +155,7 @@ let CLS_LEVEL = null;
 let CLS_ID = null;
 let editTarget = null;
 let REP_MODE = "week";
-let qrScanner = null;
+let qrScanner = null; // unused, kept to avoid stray refs
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -190,7 +190,7 @@ function login() {
       enterApp();
       return;
     }
-    toast("Sai tài khoản giáo viên (gv / 123456)");
+    toast("Tài khoản hoặc mật khẩu không đúng");
     return;
   }
   const st = DB.students.find(s => (s.username === user.toLowerCase() || s.mssv === user.toUpperCase()) && s.password === pass);
@@ -199,10 +199,9 @@ function login() {
     enterApp();
     return;
   }
-  toast("Sai MSSV hoặc mật khẩu học sinh");
+  toast("Tài khoản hoặc mật khẩu không đúng");
 }
 function logout() {
-  stopQr();
   SESSION = null;
   closeSidebar();
   $("#app").classList.add("app-hidden");
@@ -235,22 +234,24 @@ function renderShell() {
   ];
   const nav = isGV ? navGV : navSV;
   VIEW = isGV ? "dash" : "svinfo";
+  const brandTitle = isGV ? "Hệ thống quản lý lớp học" : "Hệ thống quản lý lớp học hỗ trợ sinh viên";
+  const brandSub = isGV ? "Giáo viên chủ nhiệm" : "Cổng sinh viên";
+  if ($("#mobileTitle")) $("#mobileTitle").textContent = isGV ? "Quản lý lớp học" : "Hỗ trợ sinh viên";
   $("#sidebar").innerHTML = `
     <div class="side-brand">
-      <div class="logo">GVCN</div>
-      <div><b>GVCN Hub</b><span>Quản lý lớp phân hệ</span></div>
+      <div class="logo">QL</div>
+      <div><b>${brandTitle}</b><span>${brandSub}</span></div>
     </div>
     <div class="nav">${nav.map(([id, lb]) => `<button data-view="${id}">${lb}</button>`).join("")}</div>
     <div class="side-user">
       <div class="avatar">${SESSION.name.slice(0,1)}</div>
       <div style="flex:1">
         <b style="font-size:13px;color:#fff">${SESSION.name}</b>
-        <div class="muted" style="color:#93ada3">${isGV ? "Giáo viên chủ nhiệm" : "Học sinh"}</div>
+        <div class="muted" style="color:#93ada3">${isGV ? "Giáo viên chủ nhiệm" : "Sinh viên"}</div>
       </div>
       <button class="btn btn-sm btn-ghost" onclick="logout()">Thoát</button>
     </div>`;
   $$("#sidebar .nav button").forEach(b => b.onclick = () => {
-    stopQr();
     VIEW = b.dataset.view;
     closeSidebar();
     paint();
@@ -621,28 +622,39 @@ function viewSubjects() {
     <div class="grid g-2">
       <div class="card">
         <h3>Danh mục môn <button class="btn btn-sm btn-primary" onclick="openSubModal()">Thêm môn</button></h3>
-        <div class="table-wrap"><table><thead><tr><th>Mã</th><th>Tên</th><th>TC</th><th></th></tr></thead>
-        <tbody>${DB.subjects.map(m => `<tr>
-          <td>${m.code}</td><td>${m.name}</td><td>${m.credit}</td>
-          <td>
-            <button class="btn btn-sm btn-ghost" onclick="openSubModal('${m.id}')">Sửa</button>
-            <button class="btn btn-sm btn-danger" onclick="delSub('${m.id}')">Xóa</button>
-          </td></tr>`).join("")}</tbody></table></div>
+        <div class="assign-list">
+          ${DB.subjects.map(m => `<div class="assign-card">
+            <div class="head">
+              <div><b>${m.name}</b><div class="muted">${m.code} · ${m.credit} tín chỉ</div></div>
+              <div>
+                <button class="btn btn-sm btn-ghost" onclick="openSubModal('${m.id}')">Sửa</button>
+                <button class="btn btn-sm btn-danger" onclick="delSub('${m.id}')">Xóa</button>
+              </div>
+            </div>
+          </div>`).join("")}
+        </div>
       </div>
       <div class="card">
-        <h3>Phân môn cho nhiều lớp
+        <h3>Phân môn
           <button class="btn btn-sm btn-primary" onclick="openAssignModal()">Phân công</button>
         </h3>
-        <div class="table-wrap"><table><thead><tr><th>Môn</th><th>Lớp</th><th>Năm</th><th>Kỳ</th><th></th></tr></thead>
-        <tbody>${DB.assigns.map(a => `<tr>
-          <td>${subjectName(a.subjectId)}</td>
-          <td>${classNames(a.classIds)}</td>
-          <td>${a.year}</td><td>${a.term}</td>
-          <td style="white-space:nowrap">
-            <button class="btn btn-sm btn-ghost" onclick="openAssignModal('${a.id}')">Sửa</button>
-            <button class="btn btn-sm btn-danger" onclick="delAssign('${a.id}')">Xóa</button>
-          </td>
-        </tr>`).join("")}</tbody></table></div>
+        <div class="assign-list">
+          ${DB.assigns.map(a => `<div class="assign-card">
+            <div class="head">
+              <div>
+                <b>${subjectName(a.subjectId)}</b>
+                <div class="muted">${a.term} · ${a.year}</div>
+              </div>
+              <div>
+                <button class="btn btn-sm btn-ghost" onclick="openAssignModal('${a.id}')">Sửa</button>
+                <button class="btn btn-sm btn-danger" onclick="delAssign('${a.id}')">Xóa</button>
+              </div>
+            </div>
+            <div class="pill-row" style="margin-top:8px">
+              ${(a.classIds||[]).map(id => `<span class="pill">${className(id)}</span>`).join("")}
+            </div>
+          </div>`).join("") || "<p class='empty'>Chưa phân môn</p>"}
+        </div>
       </div>
     </div>`;
 }
@@ -671,12 +683,16 @@ function delSub(id) { DB.subjects = DB.subjects.filter(s => s.id !== id); save(D
 function openAssignModal(id) {
   const a = id ? DB.assigns.find(x => x.id === id) : { subjectId: DB.subjects[0]?.id, classIds: [], year: DB.config.year, term: DB.config.term };
   editTarget = id || null;
-  showModal(`<h3>${id ? "Sửa phân công" : "Phân môn cho nhiều lớp"}</h3>
+  showModal(`<h3>${id ? "Sửa phân công" : "Phân môn"}</h3>
     <div class="form-grid">
-      <div class="field"><label>Môn</label><select id="asSub">${DB.subjects.map(s=>`<option value="${s.id}" ${a.subjectId===s.id?"selected":""}>${s.name}</option>`).join("")}</select></div>
       <div class="field"><label>Năm học</label><input id="asYear" value="${a.year}"></div>
-      <div class="field span-2"><label>Kỳ học</label><input id="asTerm" value="${a.term}"></div>
-      <div class="field span-2"><label>Chọn lớp (có thể chọn nhiều)</label>
+      <div class="field"><label>Kỳ học</label><input id="asTerm" value="${a.term}"></div>
+      <div class="field span-2"><label>Chọn môn</label>
+        <div class="check-list">
+          ${DB.subjects.map(s => `<label class="check-item"><input type="checkbox" class="asSub" value="${s.id}" ${a.subjectId===s.id?"checked":""}> ${s.name}</label>`).join("")}
+        </div>
+      </div>
+      <div class="field span-2"><label>Chọn lớp</label>
         <div class="check-list">
           ${DB.classes.map(c => `<label class="check-item"><input type="checkbox" class="asCls" value="${c.id}" ${(a.classIds||[]).includes(c.id)?"checked":""}> ${c.name}</label>`).join("")}
         </div>
@@ -689,11 +705,18 @@ function openAssignModal(id) {
 }
 function saveAssign() {
   const classIds = $$(".asCls").filter(x => x.checked).map(x => x.value);
+  const subjectIds = $$(".asSub").filter(x => x.checked).map(x => x.value);
+  if (!subjectIds.length) return toast("Chọn ít nhất một môn");
   if (!classIds.length) return toast("Chọn ít nhất một lớp");
-  const rec = { subjectId: $("#asSub").value, classIds, year: $("#asYear").value, term: $("#asTerm").value };
-  if (editTarget) Object.assign(DB.assigns.find(a => a.id === editTarget), rec);
-  else DB.assigns.push({ id: uid("a"), ...rec });
-  save(DB); hideModal(); paint(); toast("Đã phân môn cho " + classIds.length + " lớp");
+  const year = $("#asYear").value, term = $("#asTerm").value;
+  if (editTarget) {
+    const cur = DB.assigns.find(a => a.id === editTarget);
+    Object.assign(cur, { subjectId: subjectIds[0], classIds, year, term });
+    subjectIds.slice(1).forEach(sid => DB.assigns.push({ id: uid("a"), subjectId: sid, classIds: [...classIds], year, term }));
+  } else {
+    subjectIds.forEach(sid => DB.assigns.push({ id: uid("a"), subjectId: sid, classIds: [...classIds], year, term }));
+  }
+  save(DB); hideModal(); paint(); toast("Đã phân " + subjectIds.length + " môn cho " + classIds.length + " lớp");
 }
 function delAssign(id) { DB.assigns = DB.assigns.filter(a => a.id !== id); save(DB); paint(); }
 
@@ -1004,11 +1027,11 @@ function viewConfig() {
         </div>
         <div class="field"><label>Tuần hiện tại</label><input type="number" id="cfWeek" value="${DB.config.week}" min="1" max="22"></div>
         <button class="btn btn-primary" onclick="saveConfig()">Lưu cấu hình</button>
-        <button class="btn btn-outline" onclick="if(confirm('Xóa dữ liệu local và seed lại?')){localStorage.removeItem(KEY);location.reload()}">Reset dữ liệu demo</button>
+        <button class="btn btn-outline" onclick="if(confirm('Khôi phục dữ liệu ban đầu?')){localStorage.removeItem(KEY);location.reload()}">Khôi phục dữ liệu ban đầu</button>
       </div>
       <div class="card">
         <h3>Gửi Gmail khi sinh viên tạo đơn nghỉ phép</h3>
-        <div class="field"><label>Gmail nhận thông báo</label><input id="cfMail" value="${DB.config.gmail}" placeholder="gvcn@gmail.com"></div>
+        <div class="field"><label>Gmail nhận thông báo</label><input id="cfMail" value="${DB.config.gmail}" placeholder="Nhập địa chỉ Gmail"></div>
         <label style="display:flex;gap:8px;align-items:center;margin:10px 0">
           <input type="checkbox" id="cfMailOn" ${DB.config.gmailNotify?"checked":""}> Bật gửi thông báo mỗi khi có đơn mới
         </label>
@@ -1103,14 +1126,6 @@ function viewSvInfo() {
     </div>`;
 }
 
-/* ================= STUDENT LEAVE + QR ================= */
-function qrPayload(s) {
-  return JSON.stringify({ type: "LEAVE", mssv: s.mssv, name: s.name, class: className(s.classId) });
-}
-function qrImageUrl(s) {
-  return "https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=8&data=" + encodeURIComponent(qrPayload(s));
-}
-
 function viewSvLeave() {
   const s = studentById(SESSION.studentId);
   const mine = DB.leaves.filter(l => l.studentId === s.id).reverse();
@@ -1122,80 +1137,33 @@ function viewSvLeave() {
         <div class="field"><label>Từ ngày</label><input type="date" id="lvFrom" value="${todayISO()}"></div>
         <div class="field"><label>Đến ngày</label><input type="date" id="lvTo" value="${todayISO()}"></div>
         <div class="field"><label>Lý do</label><textarea id="lvReason" rows="3" placeholder="Nêu rõ lý do nghỉ"></textarea></div>
-        <div class="toolbar">
-          <button class="btn btn-primary" onclick="submitLeave('Form')">Gửi đơn</button>
-          <button class="btn btn-ghost" onclick="submitLeave('Mã QR')">Tạo đơn bằng mã QR</button>
-        </div>
+        <button class="btn btn-primary" onclick="submitLeave()">Gửi đơn</button>
       </div>
       <div class="card">
-        <h3>Mã QR của sinh viên</h3>
-        <div class="qr-box">
-          <img id="qrImg" alt="Mã QR nghỉ phép" src="${qrImageUrl(s)}" width="200" height="200" />
+        <h3>Danh sách đơn</h3>
+        <div class="leave-list">
+          ${mine.length ? mine.map(l => `
+            <div class="leave-item">
+              <div>
+                <b>${fmtDate(l.from)} → ${fmtDate(l.to)}</b>
+                <div class="muted">${l.reason}</div>
+                <div class="muted">Gửi ${fmtDate(l.createdAt)}</div>
+              </div>
+              <span class="badge ${l.status==="Duyệt"?"ok":l.status==="Từ chối"?"bad":"warn"}">${l.status}</span>
+            </div>`).join("") : "<p class='empty'>Chưa có đơn nghỉ phép</p>"}
         </div>
-        <p class="muted" style="text-align:center;margin-top:8px">Mã định danh ${s.mssv}. Dùng nút “Tạo đơn bằng mã QR” hoặc quét camera.</p>
-        <div class="toolbar" style="justify-content:center">
-          <button class="btn btn-outline" onclick="startQrScan()">Quét mã QR bằng camera</button>
-          <button class="btn btn-outline" onclick="stopQr()">Dừng camera</button>
-        </div>
-        <div id="qrReader" style="margin-top:8px"></div>
-      </div>
-    </div>
-    <div class="card" style="margin-top:14px">
-      <h3>Danh sách đơn của em</h3>
-      <div class="leave-list">
-        ${mine.length ? mine.map(l => `
-          <div class="leave-item">
-            <div>
-              <b>${fmtDate(l.from)} → ${fmtDate(l.to)}</b>
-              <div class="muted">${l.reason}</div>
-              <div class="muted">Nguồn: ${l.source || "Form"} · Gửi ${fmtDate(l.createdAt)}</div>
-            </div>
-            <span class="badge ${l.status==="Duyệt"?"ok":l.status==="Từ chối"?"bad":"warn"}">${l.status}</span>
-          </div>`).join("") : "<p class='empty'>Chưa có đơn nghỉ phép</p>"}
       </div>
     </div>`;
 }
 
-function stopQr() {
-  if (qrScanner) {
-    qrScanner.stop().catch(() => {});
-    qrScanner = null;
-  }
-}
-function startQrScan() {
-  if (!window.Html5Qrcode) return toast("Thư viện quét QR chưa tải xong, thử lại sau vài giây");
-  const box = $("#qrReader");
-  if (!box) return;
-  box.innerHTML = "";
-  const scanner = new Html5Qrcode("qrReader");
-  qrScanner = scanner;
-  scanner.start(
-    { facingMode: "environment" },
-    { fps: 8, qrbox: { width: 220, height: 220 } },
-    (text) => {
-      stopQr();
-      applyQrText(text);
-    }
-  ).catch(() => toast("Không mở được camera. Hãy dùng nút Tạo đơn bằng mã QR."));
-}
-function applyQrText(text) {
-  try {
-    const data = JSON.parse(text);
-    const s = studentById(SESSION.studentId);
-    if (data.mssv && data.mssv !== s.mssv) return toast("Mã QR không thuộc tài khoản đang đăng nhập");
-  } catch { /* plain text ok */ }
-  toast("Đã nhận mã QR. Điền ngày và lý do rồi gửi.");
-  $("#lvReason")?.focus();
-}
-
-async function submitLeave(source) {
+async function submitLeave() {
   const s = studentById(SESSION.studentId);
-  const reason = ($("#lvReason").value.trim() || (source === "Mã QR" ? "Nghỉ phép tạo từ mã QR định danh " + s.mssv : ""));
+  const reason = $("#lvReason").value.trim();
   if (!reason) return toast("Nhập lý do nghỉ");
   const rec = {
     id: uid("lv"), studentId: SESSION.studentId,
     from: $("#lvFrom").value, to: $("#lvTo").value, reason,
-    status: "Chờ duyệt", source, createdAt: new Date().toISOString()
+    status: "Chờ duyệt", source: "Form", createdAt: new Date().toISOString()
   };
   DB.leaves.push(rec);
   save(DB);
@@ -1209,55 +1177,54 @@ function viewSvWeek() {
   const s = studentById(SESSION.studentId);
   const existed = DB.reports.find(r => r.studentId === s.id && r.week === DB.config.week && r.year === DB.config.year && r.term === DB.config.term);
   const a = existed?.answers || {};
+  const ro = existed ? "disabled" : "";
   $("#main").innerHTML = `
     <div class="topbar"><h2>Báo cáo tuần</h2>${topMeta()}</div>
     <div class="card report-sheet">
       <div class="report-head">
-        <div class="org">Lớp chủ nhiệm · ${DB.config.year}</div>
+        <div class="org">${DB.config.year}</div>
         <h3>Báo cáo tuần ${DB.config.week}</h3>
         <p class="muted">${DB.config.term} · ${s.name} · ${s.mssv} · ${className(s.classId)}</p>
-        ${existed ? `<p style="margin-top:8px"><span class="badge ok">Đã nộp báo cáo tuần này</span></p>` : ""}
+        ${existed ? `<p style="margin-top:8px"><span class="badge ok">Đã nộp — mỗi tuần chỉ gửi một lần</span></p>` : `<p class="muted" style="margin-top:8px">Mỗi tuần chỉ được gửi một lần</p>`}
       </div>
       <div class="q-block">
         <h4>1. Chuyên cần</h4>
         <div class="form-grid">
-          <div class="field"><label>${QUESTION.ABSENT}</label><input type="number" id="qABSENT" min="0" value="${a.ABSENT||0}"></div>
-          <div class="field"><label>${QUESTION.LATE}</label><input type="number" id="qLATE" min="0" value="${a.LATE||0}"></div>
-          <div class="field span-2"><label>${QUESTION.ABSENT_SESSION}</label><input id="qABSENT_SESSION" value="${a.ABSENT_SESSION||""}" placeholder="Ví dụ: Thứ 3, tiết 1–2"></div>
-          <div class="field span-2"><label>${QUESTION.ABSENT_REASON}</label><input id="qABSENT_REASON" value="${a.ABSENT_REASON||""}"></div>
+          <div class="field"><label>${QUESTION.ABSENT}</label><input type="number" id="qABSENT" min="0" value="${a.ABSENT||0}" ${ro}></div>
+          <div class="field"><label>${QUESTION.LATE}</label><input type="number" id="qLATE" min="0" value="${a.LATE||0}" ${ro}></div>
+          <div class="field span-2"><label>${QUESTION.ABSENT_SESSION}</label><input id="qABSENT_SESSION" value="${a.ABSENT_SESSION||""}" ${ro}></div>
+          <div class="field span-2"><label>${QUESTION.ABSENT_REASON}</label><input id="qABSENT_REASON" value="${a.ABSENT_REASON||""}" ${ro}></div>
           <div class="field"><label>${QUESTION.REPORTED}</label>
-            <select id="qREPORTED"><option>Chưa</option><option>Đã báo</option></select></div>
+            <select id="qREPORTED" ${ro}><option>Chưa</option><option>Đã báo</option></select></div>
         </div>
       </div>
       <div class="q-block">
         <h4>2. Học tập</h4>
         <div class="form-grid">
           <div class="field"><label>${QUESTION.LEARNING}</label>
-            <select id="qLEARNING"><option>Tốt</option><option>Ổn</option><option>Yếu</option><option>Rất tốt</option></select></div>
+            <select id="qLEARNING" ${ro}><option>Tốt</option><option>Ổn</option><option>Yếu</option><option>Rất tốt</option></select></div>
           <div class="field"><label>${QUESTION.DIFFICULTY}</label>
-            <select id="qDIFFICULTY"><option>Không</option><option>Có</option></select></div>
-          <div class="field span-2"><label>${QUESTION.DIFFICULTY_DETAIL}</label><input id="qDIFFICULTY_DETAIL" value="${a.DIFFICULTY_DETAIL||""}"></div>
-          <div class="field"><label>${QUESTION.SUBJECT}</label><input id="qSUBJECT" value="${a.SUBJECT||""}"></div>
+            <select id="qDIFFICULTY" ${ro}><option>Không</option><option>Có</option></select></div>
+          <div class="field span-2"><label>${QUESTION.DIFFICULTY_DETAIL}</label><input id="qDIFFICULTY_DETAIL" value="${a.DIFFICULTY_DETAIL||""}" ${ro}></div>
+          <div class="field"><label>${QUESTION.SUBJECT}</label><input id="qSUBJECT" value="${a.SUBJECT||""}" ${ro}></div>
           <div class="field"><label>${QUESTION.ASSIGNMENT}</label>
-            <select id="qASSIGNMENT"><option>Không</option><option>Có</option></select></div>
-          <div class="field span-2"><label>${QUESTION.MOTIVATION}</label><input id="qMOTIVATION" value="${a.MOTIVATION||""}"></div>
+            <select id="qASSIGNMENT" ${ro}><option>Không</option><option>Có</option></select></div>
+          <div class="field span-2"><label>${QUESTION.MOTIVATION}</label><input id="qMOTIVATION" value="${a.MOTIVATION||""}" ${ro}></div>
         </div>
       </div>
       <div class="q-block">
         <h4>3. Hỗ trợ từ giáo viên chủ nhiệm</h4>
         <div class="form-grid">
-          <div class="field span-2"><label>${QUESTION.IMPACT}</label><input id="qIMPACT" value="${a.IMPACT||""}"></div>
+          <div class="field span-2"><label>${QUESTION.IMPACT}</label><input id="qIMPACT" value="${a.IMPACT||""}" ${ro}></div>
           <div class="field"><label>${QUESTION.SUPPORT}</label>
-            <select id="qSUPPORT"><option>Không</option><option>Có</option></select></div>
+            <select id="qSUPPORT" ${ro}><option>Không</option><option>Có</option></select></div>
           <div class="field"><label>${QUESTION.PRIVATE}</label>
-            <select id="qPRIVATE"><option>Không</option><option>Có</option></select></div>
-          <div class="field span-2"><label>${QUESTION.SUPPORT_DETAIL}</label><input id="qSUPPORT_DETAIL" value="${a.SUPPORT_DETAIL||""}"></div>
-          <div class="field span-2"><label>${QUESTION.OTHER}</label><textarea id="qOTHER" rows="3">${a.OTHER||""}</textarea></div>
+            <select id="qPRIVATE" ${ro}><option>Không</option><option>Có</option></select></div>
+          <div class="field span-2"><label>${QUESTION.SUPPORT_DETAIL}</label><input id="qSUPPORT_DETAIL" value="${a.SUPPORT_DETAIL||""}" ${ro}></div>
+          <div class="field span-2"><label>${QUESTION.OTHER}</label><textarea id="qOTHER" rows="3" ${ro}>${a.OTHER||""}</textarea></div>
         </div>
       </div>
-      <div class="modal-actions">
-        <button class="btn btn-primary" onclick="submitWeek()">${existed ? "Cập nhật báo cáo" : "Nộp báo cáo tuần"}</button>
-      </div>
+      ${existed ? "" : `<div class="modal-actions"><button class="btn btn-primary" onclick="submitWeek()">Nộp báo cáo tuần</button></div>`}
     </div>`;
   ["REPORTED","LEARNING","DIFFICULTY","ASSIGNMENT","SUPPORT","PRIVATE"].forEach(k => {
     const el = document.getElementById("q" + k);
@@ -1269,8 +1236,8 @@ function submitWeek() {
   ["ABSENT","LATE","ABSENT_SESSION","ABSENT_REASON","REPORTED","LEARNING","DIFFICULTY","DIFFICULTY_DETAIL","SUBJECT","ASSIGNMENT","MOTIVATION","IMPACT","SUPPORT","PRIVATE","SUPPORT_DETAIL","OTHER"]
     .forEach(k => answers[k] = document.getElementById("q" + k)?.value || "");
   const exist = DB.reports.find(r => r.studentId === SESSION.studentId && r.week === DB.config.week && r.year === DB.config.year && r.term === DB.config.term);
-  if (exist) { exist.answers = answers; exist.updatedAt = new Date().toISOString(); }
-  else DB.reports.push({
+  if (exist) { toast("Tuần này em đã nộp báo cáo. Mỗi tuần chỉ gửi một lần."); return; }
+  DB.reports.push({
     id: uid("rp"), studentId: SESSION.studentId, week: DB.config.week,
     year: DB.config.year, term: DB.config.term, answers, createdAt: new Date().toISOString()
   });
