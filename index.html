@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>GVCN Hub · Quản lý lớp phân hệ</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;650;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
@@ -13,15 +13,15 @@
     <div class="login-card">
       <div class="login-art">
         <div>
-          <div class="brand-mark">🌿</div>
+          <div class="brand-mark">GVCN</div>
           <h1>Hệ thống quản lý lớp phân hệ</h1>
-          <p>Dành cho giáo viên chủ nhiệm và học sinh. Theo dõi lớp, điểm danh, nghỉ phép, báo cáo tuần và ban cán sự trên một giao diện xanh – trắng hiện đại.</p>
+          <p>Nền tảng làm việc cho giáo viên chủ nhiệm: lớp học, sinh viên, điểm danh, nghỉ phép và báo cáo theo kỳ.</p>
         </div>
-        <p>Năm học · Kỳ học · Tuần hiện tại luôn hiện ở góc phải màn hình làm việc.</p>
+        <p>Năm học, học kỳ và tuần hiện tại luôn hiển thị trên thanh công việc.</p>
       </div>
       <div class="login-form">
         <h2>Đăng nhập</h2>
-        <p class="sub">Chọn vai trò rồi dùng tài khoản demo bên dưới.</p>
+        <p class="sub">Chọn vai trò và nhập tài khoản được cấp.</p>
         <div class="role-pills">
           <button class="active" data-role="gv" type="button">Giáo viên CN</button>
           <button data-role="sv" type="button">Học sinh</button>
@@ -34,7 +34,7 @@
           <label>Mật khẩu</label>
           <input id="loginPass" type="password" value="123456" autocomplete="current-password" />
         </div>
-        <button class="btn btn-primary full" id="btnLogin">Vào hệ thống</button>
+        <button class="btn btn-primary full" id="btnLogin" type="button">Đăng nhập</button>
         <p class="hint">
           GVCN: <b>gv</b> / <b>123456</b><br />
           Học sinh: <b>sv001</b> … <b>sv010</b> / <b>123456</b>
@@ -44,6 +44,12 @@
   </section>
 
   <div id="app" class="shell app-hidden">
+    <div class="mobile-bar">
+      <button class="icon-btn" id="btnMenu" type="button" aria-label="Menu">☰</button>
+      <b>GVCN Hub</b>
+      <span style="width:36px"></span>
+    </div>
+    <div class="backdrop" id="backdrop"></div>
     <aside class="sidebar" id="sidebar"></aside>
     <main class="main" id="main"></main>
   </div>
@@ -53,10 +59,10 @@
   </div>
   <div class="toast" id="toast"></div>
 
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

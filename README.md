@@ -2,6 +2,8 @@
 
 Giao diện web tĩnh (HTML / CSS / JS), lưu dữ liệu trên trình duyệt. **Không dùng Python.** Deploy trên **Vercel**.
 
+Phiên bản giao diện chuyên nghiệp, responsive điện thoại và laptop. Nút đăng nhập ghi **Đăng nhập**. Phân môn cho nhiều lớp. Báo cáo theo ngày / tuần / tháng / quý / năm. Gửi Gmail khi sinh viên tạo đơn nghỉ phép. Hồ sơ SV, mã QR đơn phép, danh sách đơn kèm trạng thái, form báo cáo tuần.
+
 ## Chạy local (Node)
 
 ```bash

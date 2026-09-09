@@ -1,7 +1,7 @@
 /************************************************************
- * HỆ THỐNG QUẢN LÝ LỚP PHÂN HỆ – GVCN
+ * HỆ THỐNG QUẢN LÝ LỚP PHÂN HỆ – GVCN  v2
  ************************************************************/
-const KEY = "gvcn_system_v1";
+const KEY = "gvcn_system_v2";
 const QUESTION = {
   STUDENT: "Họ và tên",
   WEEK: "Tuần học",
@@ -24,31 +24,42 @@ const QUESTION = {
 };
 
 const LEVELS = [
-  { id: "daihoc", name: "Đại học", icon: "🎓" },
-  { id: "caodang", name: "Cao đẳng", icon: "🏫" },
-  { id: "trungcap", name: "Trung cấp", icon: "📘" }
+  { id: "daihoc", name: "Đại học", mark: "ĐH" },
+  { id: "caodang", name: "Cao đẳng", mark: "CĐ" },
+  { id: "trungcap", name: "Trung cấp", mark: "TC" }
 ];
-
 const STATUS = ["Đang học", "Bảo lưu", "Đình chỉ", "Tốt nghiệp", "Nghỉ học", "Cần quan tâm", "Cần theo dõi"];
 const ROLES_CS = ["Lớp trưởng", "Lớp phó học tập", "Lớp phó đời sống", "Bí thư", "Thủ quỹ", "Không"];
 
 function uid(p = "id") { return p + "_" + Math.random().toString(36).slice(2, 9); }
-function todayISO() { return new Date().toISOString().slice(0, 10); }
+function todayISO() {
+  const d = new Date();
+  const z = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`;
+}
 function validPhone(s) {
   if (!s) return true;
   return /^(0|\+84)(3|5|7|8|9)\d{8}$/.test(String(s).replace(/\s/g, ""));
 }
+function validEmail(s) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s || "").trim());
+}
+function fmtDate(s) {
+  if (!s) return "—";
+  const [y, m, d] = String(s).slice(0, 10).split("-");
+  return d && m && y ? `${d}/${m}/${y}` : s;
+}
 
 function seed() {
   const classes = [
-    { id: "c1", name: "DHKT01", level: "daihoc", year: "2025-2026", note: "Kinh tế - Đại học" },
-    { id: "c2", name: "CDCN02", level: "caodang", year: "2025-2026", note: "Công nghệ - Cao đẳng" },
-    { id: "c3", name: "TCCN01", level: "trungcap", year: "2025-2026", note: "Công nghệ - Trung cấp" }
+    { id: "c1", name: "DHKT01", level: "daihoc", year: "2025-2026", note: "Kinh tế — Đại học" },
+    { id: "c2", name: "CDCN02", level: "caodang", year: "2025-2026", note: "Công nghệ — Cao đẳng" },
+    { id: "c3", name: "TCCN01", level: "trungcap", year: "2025-2026", note: "Công nghệ — Trung cấp" }
   ];
   const students = [
-    ["SV001","Nguyễn Minh Anh","Nữ","2005-03-12","c1","0912345001","Nguyễn Văn A","0901111001","Trần Thị B","0901111002","12 Nguyễn Huệ, Q1","KTX A, P.101","Đang học"],
-    ["SV002","Trần Quốc Bảo","Nam","2005-07-21","c1","0912345002","Trần Văn C","0901111003","Lê Thị D","0901111004","45 Lê Lợi, Q3","KTX A, P.102","Đang học"],
-    ["SV003","Lê Gia Hân","Nữ","2005-01-09","c1","0912345003","Lê Văn E","0901111005","Phạm Thị F","0901111006","8 Pasteur, Q1","Nhà trọ Q.Tân Bình","Cần quan tâm"],
+    ["SV001","Nguyễn Minh Anh","Nữ","2005-03-12","c1","0912345001","Nguyễn Văn A","0901111001","Trần Thị B","0901111002","12 Nguyễn Huệ, Q.1","KTX A, P.101","Đang học"],
+    ["SV002","Trần Quốc Bảo","Nam","2005-07-21","c1","0912345002","Trần Văn C","0901111003","Lê Thị D","0901111004","45 Lê Lợi, Q.3","KTX A, P.102","Đang học"],
+    ["SV003","Lê Gia Hân","Nữ","2005-01-09","c1","0912345003","Lê Văn E","0901111005","Phạm Thị F","0901111006","8 Pasteur, Q.1","Nhà trọ Q. Tân Bình","Cần quan tâm"],
     ["SV004","Phạm Đức Huy","Nam","2004-11-02","c1","0912345004","Phạm Văn G","0901111007","Võ Thị H","0901111008","22 Cách Mạng Tháng 8","KTX B","Đang học"],
     ["SV005","Võ Ngọc Lan","Nữ","2005-05-18","c2","0912345005","Võ Văn I","0901111009","Đặng Thị K","0901111010","3 Hoàng Diệu","KTX C","Cần theo dõi"],
     ["SV006","Đặng Nhật Nam","Nam","2006-02-14","c2","0912345006","Đặng Văn L","0901111011","Bùi Thị M","0901111012","19 Nguyễn Trãi","Nhà riêng","Đang học"],
@@ -60,7 +71,8 @@ function seed() {
     id: "s" + (i + 1), mssv: r[0], name: r[1], gender: r[2], dob: r[3], classId: r[4],
     phone: r[5], father: r[6], fatherPhone: r[7], mother: r[8], motherPhone: r[9],
     addrThuongTru: r[10], addrCuTru: r[11], status: r[12],
-    username: r[0].toLowerCase(), password: "123456", officer: i === 0 ? "Lớp trưởng" : i === 4 ? "Lớp trưởng" : i === 7 ? "Lớp trưởng" : "Không"
+    username: r[0].toLowerCase(), password: "123456",
+    officer: i === 0 || i === 4 || i === 7 ? "Lớp trưởng" : "Không"
   }));
   const subjects = [
     { id: "m1", name: "Toán cao cấp", code: "MATH101", credit: 3 },
@@ -70,12 +82,10 @@ function seed() {
     { id: "m5", name: "Anh văn 1", code: "ENG101", credit: 3 }
   ];
   const assigns = [
-    { id: "a1", subjectId: "m1", classId: "c1", year: "2025-2026", term: "Học kỳ 1" },
-    { id: "a2", subjectId: "m2", classId: "c1", year: "2025-2026", term: "Học kỳ 1" },
-    { id: "a3", subjectId: "m5", classId: "c1", year: "2025-2026", term: "Học kỳ 1" },
-    { id: "a4", subjectId: "m2", classId: "c2", year: "2025-2026", term: "Học kỳ 1" },
-    { id: "a5", subjectId: "m4", classId: "c2", year: "2025-2026", term: "Học kỳ 1" },
-    { id: "a6", subjectId: "m4", classId: "c3", year: "2025-2026", term: "Học kỳ 1" }
+    { id: "a1", subjectId: "m1", classIds: ["c1"], year: "2025-2026", term: "Học kỳ 1" },
+    { id: "a2", subjectId: "m2", classIds: ["c1", "c2"], year: "2025-2026", term: "Học kỳ 1" },
+    { id: "a3", subjectId: "m5", classIds: ["c1"], year: "2025-2026", term: "Học kỳ 1" },
+    { id: "a4", subjectId: "m4", classIds: ["c2", "c3"], year: "2025-2026", term: "Học kỳ 1" }
   ];
   const attendance = [
     { id: "at1", studentId: "s3", subjectId: "m1", date: todayISO(), status: "Vắng", note: "Không phép" },
@@ -83,25 +93,7 @@ function seed() {
     { id: "at3", studentId: "s5", subjectId: "m2", date: todayISO(), status: "Vắng", note: "Có phép" }
   ];
   const leaves = [
-    { id: "lv1", studentId: "s3", from: todayISO(), to: todayISO(), reason: "Ốm, khám bệnh", status: "Chờ duyệt", createdAt: new Date().toISOString() }
-  ];
-  const reports = [
-    { id: "rp1", studentId: "s1", week: 8, year: "2025-2026", term: "Học kỳ 1",
-      answers: { ABSENT: "0", LATE: "0", LEARNING: "Tốt", DIFFICULTY: "Không", SUPPORT: "Không", MOTIVATION: "Ổn định" },
-      createdAt: new Date().toISOString() }
-  ];
-  const tasks = [
-    { id: "t1", title: "Họp lớp đầu tuần", date: todayISO(), type: "Hôm nay", done: false },
-    { id: "t2", title: "Duyệt đơn nghỉ phép", date: todayISO(), type: "Hôm nay", done: false },
-    { id: "t3", title: "Nhập điểm danh môn Toán", date: todayISO(), type: "Tuần này", done: false },
-    { id: "t4", title: "Nộp báo cáo tuần lên khoa", date: todayISO(), type: "Tuần này", done: false }
-  ];
-  const schedule = [
-    { day: "Thứ 2", slots: "07:30 Toán cao cấp – DHKT01" },
-    { day: "Thứ 3", slots: "09:20 Tin học đại cương – DHKT01" },
-    { day: "Thứ 4", slots: "13:00 Anh văn 1 – DHKT01" },
-    { day: "Thứ 5", slots: "07:30 Kỹ năng mềm – CDCN02" },
-    { day: "Thứ 6", slots: "09:20 Tin học – CDCN02 / TCCN01" }
+    { id: "lv1", studentId: "s3", from: todayISO(), to: todayISO(), reason: "Ốm, khám bệnh", status: "Chờ duyệt", source: "Form", createdAt: new Date().toISOString() }
   ];
   return {
     config: {
@@ -112,19 +104,46 @@ function seed() {
       gmail: "gvcn.demo@gmail.com"
     },
     teacher: { name: "Nguyễn Thị Hồng", username: "gv", password: "123456" },
-    classes, students, subjects, assigns, attendance, leaves, reports, tasks, schedule,
+    classes, students, subjects, assigns, attendance, leaves,
+    reports: [{
+      id: "rp1", studentId: "s1", week: 8, year: "2025-2026", term: "Học kỳ 1",
+      answers: { ABSENT: "0", LATE: "0", LEARNING: "Tốt", DIFFICULTY: "Không", SUPPORT: "Không", MOTIVATION: "Ổn định" },
+      createdAt: new Date().toISOString()
+    }],
+    tasks: [
+      { id: "t1", title: "Họp lớp đầu tuần", date: todayISO(), type: "Hôm nay", done: false },
+      { id: "t2", title: "Duyệt đơn nghỉ phép", date: todayISO(), type: "Hôm nay", done: false },
+      { id: "t3", title: "Nhập điểm danh môn Toán", date: todayISO(), type: "Tuần này", done: false },
+      { id: "t4", title: "Nộp báo cáo tuần lên khoa", date: todayISO(), type: "Tuần này", done: false }
+    ],
+    schedule: [
+      { day: "Thứ 2", slots: "07:30 Toán cao cấp — DHKT01" },
+      { day: "Thứ 3", slots: "09:20 Tin học đại cương — DHKT01 / CDCN02" },
+      { day: "Thứ 4", slots: "13:00 Anh văn 1 — DHKT01" },
+      { day: "Thứ 5", slots: "07:30 Kỹ năng mềm — CDCN02 / TCCN01" },
+      { day: "Thứ 6", slots: "09:20 Tin học — CDCN02" }
+    ],
     issues: [
-      { id: "is1", studentId: "s3", type: "Nghiêm trọng", text: "Nghỉ không phép 2 buổi liên tiếp", week: 8, reported: false },
-      { id: "is2", studentId: "s5", type: "Cần hỗ trợ", text: "Gia đình khó khăn, hay đi trễ", week: 8, reported: true }
-    ]
+      { id: "is1", studentId: "s3", type: "Nghiêm trọng", text: "Nghỉ không phép 2 buổi liên tiếp", week: 8, reported: false, date: todayISO() },
+      { id: "is2", studentId: "s5", type: "Cần hỗ trợ", text: "Gia đình khó khăn, hay đi trễ", week: 8, reported: true, date: todayISO() }
+    ],
+    mailLog: []
   };
 }
 
+function migrate(db) {
+  if (!db.config) db.config = seed().config;
+  if (!Array.isArray(db.mailLog)) db.mailLog = [];
+  (db.assigns || []).forEach(a => {
+    if (!a.classIds) a.classIds = a.classId ? [a.classId] : [];
+  });
+  return db;
+}
 function load() {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) { const s = seed(); save(s); return s; }
-    return JSON.parse(raw);
+    return migrate(JSON.parse(raw));
   } catch { const s = seed(); save(s); return s; }
 }
 function save(db) { localStorage.setItem(KEY, JSON.stringify(db)); }
@@ -135,6 +154,8 @@ let VIEW = "dash";
 let CLS_LEVEL = null;
 let CLS_ID = null;
 let editTarget = null;
+let REP_MODE = "week";
+let qrScanner = null;
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -143,16 +164,19 @@ function toast(msg) {
   const t = $("#toast");
   t.textContent = msg;
   t.classList.add("show");
-  setTimeout(() => t.classList.remove("show"), 2400);
+  setTimeout(() => t.classList.remove("show"), 2800);
 }
-
 function className(id) { return DB.classes.find(c => c.id === id)?.name || "—"; }
 function studentById(id) { return DB.students.find(s => s.id === id); }
 function subjectName(id) { return DB.subjects.find(s => s.id === id)?.name || "—"; }
-
+function classNames(ids) { return (ids || []).map(className).join(", "); }
 function phoneOkOrWarn(v, label) {
   if (v && !validPhone(v)) { toast(label + " không hợp lệ (VD: 0912345678)"); return false; }
   return true;
+}
+function closeSidebar() {
+  $("#sidebar")?.classList.remove("open");
+  $("#backdrop")?.classList.remove("show");
 }
 
 /* ================= LOGIN ================= */
@@ -177,13 +201,13 @@ function login() {
   }
   toast("Sai MSSV hoặc mật khẩu học sinh");
 }
-
 function logout() {
+  stopQr();
   SESSION = null;
+  closeSidebar();
   $("#app").classList.add("app-hidden");
   $("#loginScreen").classList.remove("app-hidden");
 }
-
 function enterApp() {
   $("#loginScreen").classList.add("app-hidden");
   $("#app").classList.remove("app-hidden");
@@ -193,41 +217,44 @@ function enterApp() {
 function renderShell() {
   const isGV = SESSION.role === "gv";
   const navGV = [
-    ["dash", "🏠", "Tổng quan"],
-    ["classes", "🏫", "Lớp chủ nhiệm"],
-    ["students", "👨‍🎓", "Sinh viên"],
-    ["homeroom", "🌿", "Lớp theo phân hệ"],
-    ["subjects", "📚", "Môn học"],
-    ["attend", "🗓️", "Điểm danh"],
-    ["work", "✅", "Công việc"],
-    ["report", "📊", "Báo cáo"],
-    ["leave", "📝", "Nghỉ phép"],
-    ["config", "⚙️", "Cấu hình"]
+    ["dash", "Tổng quan"],
+    ["classes", "Lớp chủ nhiệm"],
+    ["students", "Sinh viên"],
+    ["homeroom", "Lớp theo phân hệ"],
+    ["subjects", "Môn học"],
+    ["attend", "Điểm danh"],
+    ["work", "Công việc"],
+    ["report", "Báo cáo"],
+    ["leave", "Nghỉ phép"],
+    ["config", "Cấu hình"]
   ];
   const navSV = [
-    ["svinfo", "👤", "Thông tin"],
-    ["svleave", "📝", "Nghỉ phép"],
-    ["svweek", "📋", "Báo cáo tuần"]
+    ["svinfo", "Thông tin"],
+    ["svleave", "Nghỉ phép"],
+    ["svweek", "Báo cáo tuần"]
   ];
   const nav = isGV ? navGV : navSV;
   VIEW = isGV ? "dash" : "svinfo";
   $("#sidebar").innerHTML = `
     <div class="side-brand">
-      <div class="logo">🌿</div>
+      <div class="logo">GVCN</div>
       <div><b>GVCN Hub</b><span>Quản lý lớp phân hệ</span></div>
     </div>
-    <div class="nav">
-      ${nav.map(([id, ic, lb]) => `<button data-view="${id}">${ic} ${lb}</button>`).join("")}
-    </div>
+    <div class="nav">${nav.map(([id, lb]) => `<button data-view="${id}">${lb}</button>`).join("")}</div>
     <div class="side-user">
       <div class="avatar">${SESSION.name.slice(0,1)}</div>
       <div style="flex:1">
-        <b style="font-size:13px">${SESSION.name}</b>
-        <div class="muted" style="color:#bbf7d0">${isGV ? "Giáo viên chủ nhiệm" : "Học sinh"}</div>
+        <b style="font-size:13px;color:#fff">${SESSION.name}</b>
+        <div class="muted" style="color:#93ada3">${isGV ? "Giáo viên chủ nhiệm" : "Học sinh"}</div>
       </div>
       <button class="btn btn-sm btn-ghost" onclick="logout()">Thoát</button>
     </div>`;
-  $$("#sidebar .nav button").forEach(b => b.onclick = () => { VIEW = b.dataset.view; paint(); });
+  $$("#sidebar .nav button").forEach(b => b.onclick = () => {
+    stopQr();
+    VIEW = b.dataset.view;
+    closeSidebar();
+    paint();
+  });
   paint();
 }
 
@@ -257,14 +284,14 @@ function viewDash() {
   const pend = DB.leaves.filter(l => l.status === "Chờ duyệt").length;
   const care = DB.students.filter(s => s.status === "Cần quan tâm" || s.status === "Cần theo dõi").length;
   $("#main").innerHTML = `
-    <div class="topbar"><div><h2>Tổng quan lớp chủ nhiệm</h2><p class="muted">Xin chào, ${SESSION.name}</p></div>${topMeta()}</div>
+    <div class="topbar"><div><h2>Tổng quan</h2><p class="muted">Xin chào, ${SESSION.name}</p></div>${topMeta()}</div>
     <div class="grid g-4">
       <div class="stat"><div class="k">Sinh viên</div><div class="v">${n}</div></div>
       <div class="stat"><div class="k">Đơn phép chờ</div><div class="v">${pend}</div></div>
-      <div class="stat"><div class="k">Lượt vắng / trễ</div><div class="v">${abs} / ${late}</div></div>
+      <div class="stat"><div class="k">Vắng / trễ</div><div class="v">${abs} / ${late}</div></div>
       <div class="stat"><div class="k">Cần quan tâm</div><div class="v">${care}</div></div>
     </div>
-    <div class="grid g-2" style="margin-top:16px">
+    <div class="grid g-2" style="margin-top:14px">
       <div class="card">
         <h3>Công việc hôm nay</h3>
         ${DB.tasks.filter(t => t.type === "Hôm nay").map(t => `
@@ -273,17 +300,16 @@ function viewDash() {
           </label>`).join("") || "<p class='empty'>Không có việc</p>"}
       </div>
       <div class="card">
-        <h3>Cảnh báo</h3>
+        <h3>Cảnh báo lớp</h3>
         ${DB.issues.map(i => {
           const s = studentById(i.studentId);
-          return `<div style="padding:8px 0;border-bottom:1px solid #f1f5f9">
+          return `<div style="padding:8px 0;border-bottom:1px solid var(--line)">
             <b>${s?.name}</b> · <span class="badge ${i.type==="Nghiêm trọng"?"bad":"warn"}">${i.type}</span>
             <div class="muted">${i.text}</div></div>`;
         }).join("")}
       </div>
     </div>`;
 }
-
 function toggleTask(id) {
   const t = DB.tasks.find(x => x.id === id);
   if (t) { t.done = !t.done; save(DB); paint(); }
@@ -296,21 +322,21 @@ function viewClasses() {
     <div class="card">
       <div class="toolbar">
         <input class="search" id="qClass" placeholder="Tìm lớp..." oninput="renderClassTable()">
-        <button class="btn btn-primary" onclick="openClassModal()">＋ Thêm lớp</button>
+        <button class="btn btn-primary" onclick="openClassModal()">Thêm lớp</button>
       </div>
-      <div id="classTable"></div>
+      <div id="classTable" class="table-wrap"></div>
     </div>`;
   renderClassTable();
 }
 function renderClassTable() {
   const q = ($("#qClass")?.value || "").toLowerCase();
-  const rows = DB.classes.filter(c => c.name.toLowerCase().includes(q) || c.note.toLowerCase().includes(q));
+  const rows = DB.classes.filter(c => (c.name + c.note).toLowerCase().includes(q));
   $("#classTable").innerHTML = `<table><thead><tr><th>Lớp</th><th>Phân hệ</th><th>Năm học</th><th>Sĩ số</th><th>Ghi chú</th><th></th></tr></thead><tbody>
     ${rows.map(c => {
       const lv = LEVELS.find(l => l.id === c.level)?.name || c.level;
       const n = DB.students.filter(s => s.classId === c.id).length;
       return `<tr><td><b>${c.name}</b></td><td>${lv}</td><td>${c.year}</td><td>${n}</td><td>${c.note||""}</td>
-        <td>
+        <td style="white-space:nowrap">
           <button class="btn btn-sm btn-ghost" onclick="openClassModal('${c.id}')">Sửa</button>
           <button class="btn btn-sm btn-danger" onclick="delClass('${c.id}')">Xóa</button>
         </td></tr>`;
@@ -334,12 +360,7 @@ function openClassModal(id) {
     </div>`);
 }
 function saveClass() {
-  const rec = {
-    name: $("#fName").value.trim(),
-    level: $("#fLevel").value,
-    year: $("#fYear").value.trim(),
-    note: $("#fNote").value.trim()
-  };
+  const rec = { name: $("#fName").value.trim(), level: $("#fLevel").value, year: $("#fYear").value.trim(), note: $("#fNote").value.trim() };
   if (!rec.name) return toast("Nhập tên lớp");
   if (editTarget) Object.assign(editTarget, rec);
   else DB.classes.push({ id: uid("c"), ...rec });
@@ -362,12 +383,12 @@ function viewStudents() {
           <option value="">Tất cả lớp</option>
           ${DB.classes.map(c => `<option value="${c.id}">${c.name}</option>`).join("")}
         </select>
-        <button class="btn btn-primary" onclick="openSvModal()">＋ Thêm SV</button>
-        <button class="btn btn-ghost" onclick="document.getElementById('fileImp').click()">⬆ Excel / JSON</button>
+        <button class="btn btn-primary" onclick="openSvModal()">Thêm SV</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('fileImp').click()">Nhập Excel / JSON</button>
         <input type="file" id="fileImp" accept=".xlsx,.xls,.json,.csv" hidden onchange="importFile(event)">
-        <button class="btn btn-outline" onclick="exportSvExcel()">⬇ Excel mẫu</button>
+        <button class="btn btn-outline" onclick="exportSvExcel()">Xuất Excel mẫu</button>
       </div>
-      <div id="svTable" style="overflow:auto"></div>
+      <div id="svTable" class="table-wrap"></div>
     </div>`;
   renderSvTable();
 }
@@ -376,8 +397,7 @@ function renderSvTable() {
   const cf = $("#fClassFilter")?.value || "";
   const rows = DB.students.filter(s => {
     if (cf && s.classId !== cf) return false;
-    const blob = [s.mssv, s.name, s.phone, s.status].join(" ").toLowerCase();
-    return blob.includes(q);
+    return [s.mssv, s.name, s.phone, s.status].join(" ").toLowerCase().includes(q);
   });
   $("#svTable").innerHTML = `<table><thead><tr>
     <th>MSSV</th><th>Họ tên</th><th>GT</th><th>Lớp</th><th>SĐT</th><th>Tình trạng</th><th>Cán sự</th><th></th>
@@ -478,7 +498,6 @@ function resetPw(id) {
   alert("Mật khẩu mới của " + s.name + ":\n\n" + nw);
   toast("Đã cấp lại mật khẩu");
 }
-
 function exportSvExcel() {
   const rows = DB.students.map(s => ({
     mssv: s.mssv, name: s.name, gender: s.gender, dob: s.dob, class: className(s.classId),
@@ -494,7 +513,6 @@ function exportSvExcel() {
   XLSX.utils.book_append_sheet(wb, ws, "SinhVien");
   XLSX.writeFile(wb, "danh_sach_sinh_vien.xlsx");
 }
-
 async function importFile(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -506,10 +524,9 @@ async function importFile(e) {
     } else {
       const buf = await file.arrayBuffer();
       const wb = XLSX.read(buf);
-      const arr = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
-      ingestStudents(arr);
+      ingestStudents(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]));
     }
-  } catch (err) { toast("File không hợp lệ"); console.error(err); }
+  } catch { toast("File không hợp lệ"); }
   e.target.value = "";
 }
 function ingestStudents(arr) {
@@ -551,13 +568,13 @@ function ingestStudents(arr) {
 function viewHomeroom() {
   if (!CLS_LEVEL) {
     $("#main").innerHTML = `
-      <div class="topbar"><h2>Lớp chủ nhiệm theo phân hệ</h2>${topMeta()}</div>
-      <p class="muted" style="margin-bottom:12px">Chọn phân hệ → chọn lớp → danh sách sinh viên & bổ nhiệm ban cán sự</p>
+      <div class="topbar"><h2>Lớp theo phân hệ</h2>${topMeta()}</div>
+      <p class="muted" style="margin-bottom:12px">Chọn phân hệ, sau đó chọn lớp để xem danh sách và bổ nhiệm ban cán sự.</p>
       <div class="level-cards">
         ${LEVELS.map(l => {
           const n = DB.classes.filter(c => c.level === l.id).length;
           return `<div class="level-card" onclick="CLS_LEVEL='${l.id}';paint()">
-            <div style="font-size:32px">${l.icon}</div><h4>${l.name}</h4>
+            <div class="muted">${l.mark}</div><h4 style="margin:6px 0">${l.name}</h4>
             <p class="muted">${n} lớp chủ nhiệm</p></div>`;
         }).join("")}
       </div>`;
@@ -567,7 +584,7 @@ function viewHomeroom() {
     const list = DB.classes.filter(c => c.level === CLS_LEVEL);
     const lv = LEVELS.find(l => l.id === CLS_LEVEL);
     $("#main").innerHTML = `
-      <div class="topbar"><h2>${lv.icon} ${lv.name}</h2>${topMeta()}</div>
+      <div class="topbar"><h2>${lv.name}</h2>${topMeta()}</div>
       <div class="breadcrumb" onclick="CLS_LEVEL=null;paint()">← Tất cả phân hệ</div>
       <div class="grid g-3">
         ${list.map(c => `<div class="class-card" onclick="CLS_ID='${c.id}';paint()">
@@ -584,44 +601,48 @@ function viewHomeroom() {
     <div class="breadcrumb" onclick="CLS_ID=null;paint()">← Danh sách lớp ${LEVELS.find(l=>l.id===c.level).name}</div>
     <div class="card">
       <h3>Danh sách sinh viên · Bổ nhiệm ban cán sự</h3>
-      <table><thead><tr><th>MSSV</th><th>Họ tên</th><th>SĐT</th><th>Tình trạng</th><th>Ban cán sự</th></tr></thead>
+      <div class="table-wrap"><table><thead><tr><th>MSSV</th><th>Họ tên</th><th>SĐT</th><th>Tình trạng</th><th>Ban cán sự</th></tr></thead>
       <tbody>${list.map(s => `<tr>
         <td>${s.mssv}</td><td>${s.name}</td><td>${s.phone}</td><td>${s.status}</td>
         <td><select onchange="setOfficer('${s.id}', this.value)">
           ${ROLES_CS.map(r => `<option ${s.officer===r?"selected":""}>${r}</option>`).join("")}
         </select></td>
-      </tr>`).join("")}</tbody></table>
+      </tr>`).join("")}</tbody></table></div>
     </div>`;
 }
 function setOfficer(id, v) {
   studentById(id).officer = v; save(DB); toast("Đã bổ nhiệm " + v);
 }
 
-/* ================= SUBJECTS ================= */
+/* ================= SUBJECTS — nhiều lớp ================= */
 function viewSubjects() {
   $("#main").innerHTML = `
     <div class="topbar"><h2>Quản lý môn học</h2>${topMeta()}</div>
     <div class="grid g-2">
       <div class="card">
-        <h3>Danh mục môn <button class="btn btn-sm btn-primary" onclick="openSubModal()">＋ Môn</button></h3>
-        <table><thead><tr><th>Mã</th><th>Tên</th><th>TC</th><th></th></tr></thead>
+        <h3>Danh mục môn <button class="btn btn-sm btn-primary" onclick="openSubModal()">Thêm môn</button></h3>
+        <div class="table-wrap"><table><thead><tr><th>Mã</th><th>Tên</th><th>TC</th><th></th></tr></thead>
         <tbody>${DB.subjects.map(m => `<tr>
           <td>${m.code}</td><td>${m.name}</td><td>${m.credit}</td>
           <td>
             <button class="btn btn-sm btn-ghost" onclick="openSubModal('${m.id}')">Sửa</button>
             <button class="btn btn-sm btn-danger" onclick="delSub('${m.id}')">Xóa</button>
-          </td></tr>`).join("")}</tbody></table>
+          </td></tr>`).join("")}</tbody></table></div>
       </div>
       <div class="card">
-        <h3>Phân môn theo lớp / kỳ
-          <button class="btn btn-sm btn-primary" onclick="openAssignModal()">＋ Phân công</button>
+        <h3>Phân môn cho nhiều lớp
+          <button class="btn btn-sm btn-primary" onclick="openAssignModal()">Phân công</button>
         </h3>
-        <table><thead><tr><th>Môn</th><th>Lớp</th><th>Năm</th><th>Kỳ</th><th></th></tr></thead>
+        <div class="table-wrap"><table><thead><tr><th>Môn</th><th>Lớp</th><th>Năm</th><th>Kỳ</th><th></th></tr></thead>
         <tbody>${DB.assigns.map(a => `<tr>
-          <td>${subjectName(a.subjectId)}</td><td>${className(a.classId)}</td>
+          <td>${subjectName(a.subjectId)}</td>
+          <td>${classNames(a.classIds)}</td>
           <td>${a.year}</td><td>${a.term}</td>
-          <td><button class="btn btn-sm btn-danger" onclick="delAssign('${a.id}')">Xóa</button></td>
-        </tr>`).join("")}</tbody></table>
+          <td style="white-space:nowrap">
+            <button class="btn btn-sm btn-ghost" onclick="openAssignModal('${a.id}')">Sửa</button>
+            <button class="btn btn-sm btn-danger" onclick="delAssign('${a.id}')">Xóa</button>
+          </td>
+        </tr>`).join("")}</tbody></table></div>
       </div>
     </div>`;
 }
@@ -647,13 +668,19 @@ function saveSub() {
   save(DB); hideModal(); paint(); toast("Đã lưu môn");
 }
 function delSub(id) { DB.subjects = DB.subjects.filter(s => s.id !== id); save(DB); paint(); }
-function openAssignModal() {
-  showModal(`<h3>Phân môn cho lớp</h3>
+function openAssignModal(id) {
+  const a = id ? DB.assigns.find(x => x.id === id) : { subjectId: DB.subjects[0]?.id, classIds: [], year: DB.config.year, term: DB.config.term };
+  editTarget = id || null;
+  showModal(`<h3>${id ? "Sửa phân công" : "Phân môn cho nhiều lớp"}</h3>
     <div class="form-grid">
-      <div class="field"><label>Môn</label><select id="asSub">${DB.subjects.map(s=>`<option value="${s.id}">${s.name}</option>`).join("")}</select></div>
-      <div class="field"><label>Lớp</label><select id="asCls">${DB.classes.map(c=>`<option value="${c.id}">${c.name}</option>`).join("")}</select></div>
-      <div class="field"><label>Năm học</label><input id="asYear" value="${DB.config.year}"></div>
-      <div class="field"><label>Kỳ học</label><input id="asTerm" value="${DB.config.term}"></div>
+      <div class="field"><label>Môn</label><select id="asSub">${DB.subjects.map(s=>`<option value="${s.id}" ${a.subjectId===s.id?"selected":""}>${s.name}</option>`).join("")}</select></div>
+      <div class="field"><label>Năm học</label><input id="asYear" value="${a.year}"></div>
+      <div class="field span-2"><label>Kỳ học</label><input id="asTerm" value="${a.term}"></div>
+      <div class="field span-2"><label>Chọn lớp (có thể chọn nhiều)</label>
+        <div class="check-list">
+          ${DB.classes.map(c => `<label class="check-item"><input type="checkbox" class="asCls" value="${c.id}" ${(a.classIds||[]).includes(c.id)?"checked":""}> ${c.name}</label>`).join("")}
+        </div>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="hideModal()">Hủy</button>
@@ -661,43 +688,53 @@ function openAssignModal() {
     </div>`);
 }
 function saveAssign() {
-  DB.assigns.push({
-    id: uid("a"), subjectId: $("#asSub").value, classId: $("#asCls").value,
-    year: $("#asYear").value, term: $("#asTerm").value
-  });
-  save(DB); hideModal(); paint(); toast("Đã phân môn");
+  const classIds = $$(".asCls").filter(x => x.checked).map(x => x.value);
+  if (!classIds.length) return toast("Chọn ít nhất một lớp");
+  const rec = { subjectId: $("#asSub").value, classIds, year: $("#asYear").value, term: $("#asTerm").value };
+  if (editTarget) Object.assign(DB.assigns.find(a => a.id === editTarget), rec);
+  else DB.assigns.push({ id: uid("a"), ...rec });
+  save(DB); hideModal(); paint(); toast("Đã phân môn cho " + classIds.length + " lớp");
 }
 function delAssign(id) { DB.assigns = DB.assigns.filter(a => a.id !== id); save(DB); paint(); }
 
+function flattenAssignOptions() {
+  const out = [];
+  DB.assigns.filter(a => a.year === DB.config.year && a.term === DB.config.term).forEach(a => {
+    (a.classIds || []).forEach(cid => out.push({ assignId: a.id, subjectId: a.subjectId, classId: cid }));
+  });
+  return out;
+}
+
 /* ================= ATTEND ================= */
 function viewAttend() {
-  const assigns = DB.assigns.filter(a => a.year === DB.config.year && a.term === DB.config.term);
+  const opts = flattenAssignOptions();
   $("#main").innerHTML = `
     <div class="topbar"><h2>Điểm danh theo ngày học</h2>${topMeta()}</div>
     <div class="card">
       <div class="toolbar">
-        <select id="atAssign">${assigns.map(a => `<option value="${a.id}">${subjectName(a.subjectId)} · ${className(a.classId)}</option>`).join("")}</select>
+        <select id="atAssign">${opts.map((a,i) => `<option value="${i}">${subjectName(a.subjectId)} · ${className(a.classId)}</option>`).join("")}</select>
         <input type="date" id="atDate" value="${todayISO()}">
         <button class="btn btn-primary" onclick="renderAttendSheet()">Mở buổi học</button>
       </div>
       <div id="atSheet"></div>
       <h3 style="margin-top:16px">Lịch sử điểm danh</h3>
-      <table><thead><tr><th>Ngày</th><th>Môn</th><th>SV</th><th>Trạng thái</th><th>Ghi chú</th></tr></thead>
+      <div class="table-wrap"><table><thead><tr><th>Ngày</th><th>Môn</th><th>SV</th><th>Trạng thái</th><th>Ghi chú</th></tr></thead>
       <tbody>${[...DB.attendance].reverse().slice(0,30).map(a => `<tr>
-        <td>${a.date}</td><td>${subjectName(a.subjectId)}</td>
+        <td>${fmtDate(a.date)}</td><td>${subjectName(a.subjectId)}</td>
         <td>${studentById(a.studentId)?.name||""}</td>
         <td><span class="badge ${a.status==="Có mặt"?"ok":a.status==="Trễ"?"warn":"bad"}">${a.status}</span></td>
-        <td>${a.note||""}</td></tr>`).join("")}</tbody></table>
+        <td>${a.note||""}</td></tr>`).join("")}</tbody></table></div>
     </div>`;
 }
 function renderAttendSheet() {
-  const as = DB.assigns.find(a => a.id === $("#atAssign").value);
+  const opts = flattenAssignOptions();
+  const as = opts[+$("#atAssign").value];
   if (!as) return toast("Chưa có phân môn");
   const date = $("#atDate").value;
   const list = DB.students.filter(s => s.classId === as.classId);
   $("#atSheet").innerHTML = `
-    <p class="muted">Buổi ${date} · ${subjectName(as.subjectId)} · ${className(as.classId)}</p>
-    <table><thead><tr><th>SV</th><th>Trạng thái</th><th>Ghi chú</th></tr></thead>
+    <p class="muted">Buổi ${fmtDate(date)} · ${subjectName(as.subjectId)} · ${className(as.classId)}</p>
+    <div class="table-wrap"><table><thead><tr><th>SV</th><th>Trạng thái</th><th>Ghi chú</th></tr></thead>
     <tbody>${list.map(s => {
       const ex = DB.attendance.find(a => a.studentId===s.id && a.subjectId===as.subjectId && a.date===date);
       return `<tr>
@@ -707,12 +744,11 @@ function renderAttendSheet() {
         </select></td>
         <td><input id="nt_${s.id}" value="${ex?.note||""}"></td>
       </tr>`;
-    }).join("")}</tbody></table>
-    <button class="btn btn-primary" style="margin-top:10px" onclick="saveAttend('${as.subjectId}','${date}')">Lưu điểm danh</button>`;
+    }).join("")}</tbody></table></div>
+    <button class="btn btn-primary" style="margin-top:10px" onclick="saveAttend('${as.subjectId}','${as.classId}','${date}')">Lưu điểm danh</button>`;
 }
-function saveAttend(subjectId, date) {
-  const as = DB.assigns.find(a => a.subjectId === subjectId && $("#atAssign") && a.id === $("#atAssign").value) || DB.assigns.find(a => a.subjectId === subjectId);
-  const list = DB.students.filter(s => s.classId === as.classId);
+function saveAttend(subjectId, classId, date) {
+  const list = DB.students.filter(s => s.classId === classId);
   list.forEach(s => {
     const status = $("#st_" + s.id).value;
     const note = $("#nt_" + s.id).value;
@@ -734,12 +770,11 @@ function viewWork() {
   for (let i=0;i<pads;i++) cells += `<div class="d"></div>`;
   for (let d=1; d<=last; d++) {
     const iso = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
-    const isT = iso === todayISO();
     const t = DB.tasks.filter(x => x.date === iso);
-    cells += `<div class="d ${isT?"today":""}"><b>${d}</b>${t.map(x=>`<div class="muted">${x.title}</div>`).join("")}</div>`;
+    cells += `<div class="d ${iso===todayISO()?"today":""}"><b>${d}</b>${t.map(x=>`<div class="muted">${x.title}</div>`).join("")}</div>`;
   }
   $("#main").innerHTML = `
-    <div class="topbar"><h2>Công việc & lịch học</h2>${topMeta()}</div>
+    <div class="topbar"><h2>Công việc và lịch học</h2>${topMeta()}</div>
     <div class="grid g-2">
       <div class="card">
         <h3>Hôm nay</h3>
@@ -753,9 +788,9 @@ function viewWork() {
         </div>
       </div>
       <div class="card">
-        <h3>Lịch học lớp (kỳ ${DB.config.term})</h3>
-        <table><thead><tr><th>Ngày</th><th>Nội dung</th></tr></thead>
-        <tbody>${DB.schedule.map(s=>`<tr><td>${s.day}</td><td>${s.slots}</td></tr>`).join("")}</tbody></table>
+        <h3>Lịch học lớp (${DB.config.term})</h3>
+        <div class="table-wrap"><table><thead><tr><th>Ngày</th><th>Nội dung</th></tr></thead>
+        <tbody>${DB.schedule.map(s=>`<tr><td>${s.day}</td><td>${s.slots}</td></tr>`).join("")}</tbody></table></div>
         <h3 style="margin-top:16px">Lịch tháng</h3>
         <div class="cal">${cells}</div>
       </div>
@@ -774,102 +809,154 @@ function addTask() {
   save(DB); paint();
 }
 
-/* ================= REPORT ================= */
+/* ================= REPORT theo ngày/tuần/tháng/quý/năm ================= */
+function inRange(iso, from, to) {
+  if (!iso) return false;
+  const d = iso.slice(0, 10);
+  return d >= from && d <= to;
+}
+function periodBounds(mode) {
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth(), day = now.getDate();
+  const iso = d => {
+    const z = n => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}`;
+  };
+  if (mode === "day") {
+    const pick = $("#repDay")?.value || todayISO();
+    return { from: pick, to: pick, label: "Ngày " + fmtDate(pick) };
+  }
+  if (mode === "week") {
+    const w = +($("#repWeek")?.value || DB.config.week);
+    return { from: todayISO(), to: todayISO(), week: w, label: "Tuần " + w + " · " + DB.config.term };
+  }
+  if (mode === "month") {
+    const val = $("#repMonth")?.value || `${y}-${String(m+1).padStart(2,"0")}`;
+    const [yy, mm] = val.split("-").map(Number);
+    const from = `${yy}-${String(mm).padStart(2,"0")}-01`;
+    const last = new Date(yy, mm, 0).getDate();
+    return { from, to: `${yy}-${String(mm).padStart(2,"0")}-${String(last).padStart(2,"0")}`, label: "Tháng " + mm + "/" + yy };
+  }
+  if (mode === "quarter") {
+    const q = +($("#repQuarter")?.value || Math.floor(m / 3) + 1);
+    const startM = (q - 1) * 3;
+    const from = `${y}-${String(startM+1).padStart(2,"0")}-01`;
+    const last = new Date(y, startM + 3, 0).getDate();
+    const to = `${y}-${String(startM+3).padStart(2,"0")}-${String(last).padStart(2,"0")}`;
+    return { from, to, label: "Quý " + q + " năm " + y };
+  }
+  return { from: `${y}-01-01`, to: `${y}-12-31`, label: "Năm " + y };
+}
+
 function viewReport() {
-  const lateMap = {};
-  DB.attendance.filter(a => a.status === "Trễ").forEach(a => lateMap[a.studentId] = (lateMap[a.studentId]||0)+1);
-  const absMap = {};
-  DB.attendance.filter(a => a.status === "Vắng").forEach(a => absMap[a.studentId] = (absMap[a.studentId]||0)+1);
-  const weekReports = DB.reports.filter(r => r.week === DB.config.week);
-  const reportedIds = new Set(weekReports.map(r => r.studentId));
-  const needSupport = DB.reports.filter(r => (r.answers.SUPPORT||"").toLowerCase().includes("có") || (r.answers.DIFFICULTY||"").toLowerCase() === "có");
-  const serious = DB.issues.filter(i => i.type === "Nghiêm trọng");
+  const now = new Date();
+  const monthVal = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+  const qNow = Math.floor(now.getMonth() / 3) + 1;
+  $("#main").innerHTML = `
+    <div class="topbar"><h2>Báo cáo lớp</h2>${topMeta()}</div>
+    <div class="card">
+      <div class="tabs">
+        ${[["day","Theo ngày"],["week","Theo tuần"],["month","Theo tháng"],["quarter","Theo quý"],["year","Theo năm"]].map(([id,lb]) =>
+          `<button class="${REP_MODE===id?"active":""}" onclick="REP_MODE='${id}';paint()">${lb}</button>`).join("")}
+      </div>
+      <div class="toolbar">
+        ${REP_MODE==="day" ? `<input type="date" id="repDay" value="${todayISO()}" onchange="paintReportBody()">` : ""}
+        ${REP_MODE==="week" ? `<label class="muted">Tuần</label><input type="number" id="repWeek" min="1" max="22" value="${DB.config.week}" onchange="paintReportBody()">` : ""}
+        ${REP_MODE==="month" ? `<input type="month" id="repMonth" value="${monthVal}" onchange="paintReportBody()">` : ""}
+        ${REP_MODE==="quarter" ? `<select id="repQuarter" onchange="paintReportBody()">${[1,2,3,4].map(q=>`<option ${q===qNow?"selected":""} value="${q}">Quý ${q}</option>`).join("")}</select>` : ""}
+        ${REP_MODE==="year" ? `<input type="number" id="repYear" value="${now.getFullYear()}" onchange="paintReportBody()">` : ""}
+        <button class="btn btn-primary" onclick="exportReportExcel()">Xuất Excel</button>
+        <button class="btn btn-outline" onclick="exportReportPDF()">Xuất PDF</button>
+      </div>
+      <div id="repBody"></div>
+    </div>`;
+  paintReportBody();
+}
+
+function collectPeriod() {
+  const p = periodBounds(REP_MODE);
+  if (REP_MODE === "year") {
+    const y = $("#repYear")?.value || new Date().getFullYear();
+    p.from = `${y}-01-01`; p.to = `${y}-12-31`; p.label = "Năm " + y;
+  }
+  const att = DB.attendance.filter(a => inRange(a.date, p.from, p.to));
+  const leaves = DB.leaves.filter(l => inRange(l.from, p.from, p.to) || inRange(l.createdAt, p.from, p.to));
+  const reports = REP_MODE === "week"
+    ? DB.reports.filter(r => r.week === (p.week || DB.config.week) && r.year === DB.config.year)
+    : DB.reports.filter(r => inRange(r.createdAt, p.from, p.to));
+  const issues = DB.issues.filter(i => inRange(i.date, p.from, p.to) || (REP_MODE === "week" && i.week === DB.config.week));
+  return { p, att, leaves, reports, issues };
+}
+
+function paintReportBody() {
+  const { p, att, leaves, reports, issues } = collectPeriod();
+  const late = att.filter(a => a.status === "Trễ");
+  const abs = att.filter(a => a.status === "Vắng");
+  const support = reports.filter(r => (r.answers.SUPPORT || "").toLowerCase() === "có");
   const care = DB.students.filter(s => s.status === "Cần quan tâm");
   const watch = DB.students.filter(s => s.status === "Cần theo dõi");
-  $("#main").innerHTML = `
-    <div class="topbar"><h2>Báo cáo & thống kê lớp</h2>${topMeta()}</div>
+  const lateMap = {}, absMap = {};
+  late.forEach(a => lateMap[a.studentId] = (lateMap[a.studentId] || 0) + 1);
+  abs.forEach(a => absMap[a.studentId] = (absMap[a.studentId] || 0) + 1);
+  $("#repBody").innerHTML = `
+    <p style="margin-bottom:12px"><b>${p.label}</b> <span class="muted">(${fmtDate(p.from)} – ${fmtDate(p.to)})</span></p>
     <div class="grid g-4">
-      <div class="stat"><div class="k">Vấn đề nghiêm trọng</div><div class="v">${serious.length}</div></div>
-      <div class="stat"><div class="k">Nghỉ học (lượt)</div><div class="v">${DB.attendance.filter(a=>a.status==="Vắng").length}</div></div>
-      <div class="stat"><div class="k">Cần GV hỗ trợ</div><div class="v">${needSupport.length}</div></div>
-      <div class="stat"><div class="k">Đã báo cáo tuần</div><div class="v">${weekReports.length}/${DB.students.length}</div></div>
+      <div class="stat"><div class="k">Vấn đề nghiêm trọng</div><div class="v">${issues.filter(i=>i.type==="Nghiêm trọng").length}</div></div>
+      <div class="stat"><div class="k">Lượt nghỉ</div><div class="v">${abs.length}</div></div>
+      <div class="stat"><div class="k">Lượt trễ</div><div class="v">${late.length}</div></div>
+      <div class="stat"><div class="k">Cần hỗ trợ</div><div class="v">${support.length}</div></div>
     </div>
-    <div class="card" style="margin-top:16px">
-      <div class="toolbar">
-        <button class="btn btn-primary" onclick="exportReportExcel()">⬇ Excel</button>
-        <button class="btn btn-ghost" onclick="exportReportPDF()">⬇ PDF tuần</button>
-        <button class="btn btn-outline" onclick="exportTermPDF()">⬇ PDF học kỳ</button>
+    <div class="grid g-2" style="margin-top:14px">
+      <div>
+        <h3>Nghỉ học / đi trễ</h3>
+        <div class="table-wrap"><table><thead><tr><th>Sinh viên</th><th>Vắng</th><th>Trễ</th></tr></thead><tbody>
+          ${DB.students.map(s => {
+            const v = absMap[s.id] || 0, t = lateMap[s.id] || 0;
+            if (!v && !t) return "";
+            return `<tr><td>${s.name}</td><td>${v}</td><td>${t}</td></tr>`;
+          }).join("") || "<tr><td colspan=3>Không phát sinh</td></tr>"}
+        </tbody></table></div>
       </div>
-      <div class="tabs">
-        <button class="active" onclick="showRepTab(this,'repSerious')">Nghiêm trọng</button>
-        <button onclick="showRepTab(this,'repAbsent')">Nghỉ học</button>
-        <button onclick="showRepTab(this,'repLate')">Tổng lượt trễ</button>
-        <button onclick="showRepTab(this,'repCare')">Cần quan tâm</button>
-        <button onclick="showRepTab(this,'repWatch')">Cần theo dõi</button>
-        <button onclick="showRepTab(this,'repWeek')">Báo cáo tuần</button>
-      </div>
-      <div id="repSerious">${serious.map(i=>`<p><b>${studentById(i.studentId)?.name}</b> — ${i.text} ${i.reported?'<span class="badge ok">Đã báo tuần</span>':'<span class="badge warn">Chưa báo tuần</span>'}</p>`).join("")||"<p class='empty'>Không có</p>"}</div>
-      <div id="repAbsent" hidden><table><thead><tr><th>SV</th><th>Lượt vắng</th></tr></thead><tbody>
-        ${Object.keys(absMap).map(id=>`<tr><td>${studentById(id)?.name}</td><td>${absMap[id]}</td></tr>`).join("")||"<tr><td colspan=2>Không có</td></tr>"}
-      </tbody></table></div>
-      <div id="repLate" hidden><table><thead><tr><th>SV</th><th>Tổng lượt trễ</th></tr></thead><tbody>
-        ${Object.keys(lateMap).map(id=>`<tr><td>${studentById(id)?.name}</td><td>${lateMap[id]}</td></tr>`).join("")||"<tr><td colspan=2>Không có</td></tr>"}
-      </tbody></table></div>
-      <div id="repCare" hidden>${care.map(s=>`<p>${s.mssv} · ${s.name} · ${className(s.classId)}</p>`).join("")||"<p class='empty'>Không có</p>"}</div>
-      <div id="repWatch" hidden>${watch.map(s=>`<p>${s.mssv} · ${s.name} · ${className(s.classId)}</p>`).join("")||"<p class='empty'>Không có</p>"}</div>
-      <div id="repWeek" hidden>
-        <table><thead><tr><th>SV</th><th>Đã nộp tuần ${DB.config.week}?</th><th>Cần hỗ trợ</th></tr></thead>
-        <tbody>${DB.students.map(s => {
-          const r = weekReports.find(x => x.studentId === s.id);
-          return `<tr><td>${s.name}</td><td>${r?'<span class="badge ok">Đã nộp</span>':'<span class="badge warn">Chưa</span>'}</td>
-            <td>${r?.answers.SUPPORT||"—"}</td></tr>`;
-        }).join("")}</tbody></table>
+      <div>
+        <h3>Đơn phép trong kỳ báo cáo</h3>
+        ${leaves.map(l => `<p>${studentById(l.studentId)?.name} · ${fmtDate(l.from)} – ${fmtDate(l.to)}
+          <span class="badge ${l.status==="Duyệt"?"ok":l.status==="Từ chối"?"bad":"warn"}">${l.status}</span></p>`).join("") || "<p class='empty'>Không có đơn</p>"}
+        <h3 style="margin-top:14px">Học sinh cần quan tâm / theo dõi</h3>
+        ${[...care, ...watch].map(s => `<p>${s.mssv} · ${s.name} · <span class="badge warn">${s.status}</span></p>`).join("") || "<p class='empty'>Không có</p>"}
+        <h3 style="margin-top:14px">Báo cáo tuần đã nộp</h3>
+        <p>${reports.length} / ${DB.students.length} sinh viên</p>
       </div>
     </div>`;
 }
-function showRepTab(btn, id) {
-  $$(".tabs button").forEach(b => b.classList.remove("active"));
-  btn.classList.add("active");
-  ["repSerious","repAbsent","repLate","repCare","repWatch","repWeek"].forEach(x => {
-    const el = document.getElementById(x); if (el) el.hidden = x !== id;
-  });
-}
+
 function exportReportExcel() {
+  const { p, att, leaves, reports } = collectPeriod();
   const rows = DB.students.map(s => ({
     mssv: s.mssv, name: s.name, lop: className(s.classId), status: s.status,
-    vang: DB.attendance.filter(a => a.studentId===s.id && a.status==="Vắng").length,
-    tre: DB.attendance.filter(a => a.studentId===s.id && a.status==="Trễ").length,
-    baoCaoTuan: DB.reports.some(r => r.studentId===s.id && r.week===DB.config.week) ? "Đã nộp" : "Chưa"
+    vang: att.filter(a => a.studentId===s.id && a.status==="Vắng").length,
+    tre: att.filter(a => a.studentId===s.id && a.status==="Trễ").length,
+    donPhep: leaves.filter(l => l.studentId===s.id).length,
+    baoCao: reports.some(r => r.studentId===s.id) ? "Đã nộp" : "Chưa"
   }));
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "BaoCaoLop");
-  XLSX.writeFile(wb, `bao_cao_tuan_${DB.config.week}_${DB.config.year}.xlsx`);
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "BaoCao");
+  XLSX.writeFile(wb, `bao_cao_${REP_MODE}.xlsx`);
 }
 function exportReportPDF() {
+  const { p, att } = collectPeriod();
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
   doc.setFontSize(14);
-  doc.text(`Bao cao tuan ${DB.config.week} - ${DB.config.year} - ${DB.config.term}`, 14, 16);
+  doc.text(`Bao cao lop — ${p.label}`, 14, 16);
   doc.setFontSize(10);
-  doc.text(`GVCN: ${DB.teacher.name}`, 14, 24);
+  doc.text(`GVCN: ${DB.teacher.name} | ${DB.config.year} ${DB.config.term}`, 14, 24);
   const body = DB.students.map(s => [
     s.mssv, s.name, className(s.classId), s.status,
-    String(DB.attendance.filter(a => a.studentId===s.id && a.status==="Vắng").length),
-    String(DB.attendance.filter(a => a.studentId===s.id && a.status==="Trễ").length)
+    String(att.filter(a => a.studentId===s.id && a.status==="Vắng").length),
+    String(att.filter(a => a.studentId===s.id && a.status==="Trễ").length)
   ]);
   doc.autoTable({ startY: 30, head: [["MSSV","Ho ten","Lop","Tinh trang","Vang","Tre"]], body });
-  doc.save(`bao_cao_tuan_${DB.config.week}.pdf`);
-}
-function exportTermPDF() {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-  doc.setFontSize(14);
-  doc.text(`Bao cao hoc ky - ${DB.config.term} ${DB.config.year}`, 14, 16);
-  doc.setFontSize(10);
-  doc.text(`Tong SV: ${DB.students.length} | Don phep: ${DB.leaves.length} | Can quan tam: ${DB.students.filter(s=>s.status.includes("Cần")).length}`, 14, 24);
-  const body = DB.students.map(s => [s.mssv, s.name, s.status, s.officer]);
-  doc.autoTable({ startY: 30, head: [["MSSV","Ho ten","Tinh trang","Can su"]], body });
-  doc.save(`bao_cao_hoc_ky.pdf`);
+  doc.save(`bao_cao_${REP_MODE}.pdf`);
 }
 
 /* ================= LEAVE GV ================= */
@@ -877,19 +964,24 @@ function viewLeave() {
   $("#main").innerHTML = `
     <div class="topbar"><h2>Duyệt nghỉ phép</h2>${topMeta()}</div>
     <div class="card">
-      <p class="muted" style="margin-bottom:10px">Thông báo Gmail: ${DB.config.gmailNotify ? "BẬT → " + DB.config.gmail : "TẮT"} (cấu hình trong mục Cấu hình)</p>
-      <table><thead><tr><th>SV</th><th>Từ ngày</th><th>Đến</th><th>Lý do</th><th>Trạng thái</th><th></th></tr></thead>
+      <p class="muted" style="margin-bottom:10px">
+        Thông báo Gmail: ${DB.config.gmailNotify ? "Đang bật — " + DB.config.gmail : "Đang tắt"}
+      </p>
+      <div class="table-wrap"><table><thead><tr><th>Sinh viên</th><th>Từ ngày</th><th>Đến</th><th>Lý do</th><th>Nguồn</th><th>Trạng thái</th><th></th></tr></thead>
       <tbody>${[...DB.leaves].reverse().map(l => {
         const s = studentById(l.studentId);
         return `<tr>
-          <td>${s?.name} <div class="muted">${s?.mssv}</div></td>
-          <td>${l.from}</td><td>${l.to}</td><td>${l.reason}</td>
+          <td>${s?.name}<div class="muted">${s?.mssv}</div></td>
+          <td>${fmtDate(l.from)}</td><td>${fmtDate(l.to)}</td><td>${l.reason}</td>
+          <td>${l.source || "Form"}</td>
           <td><span class="badge ${l.status==="Duyệt"?"ok":l.status==="Từ chối"?"bad":"warn"}">${l.status}</span></td>
           <td>${l.status==="Chờ duyệt" ? `
             <button class="btn btn-sm btn-primary" onclick="decideLeave('${l.id}','Duyệt')">Duyệt</button>
             <button class="btn btn-sm btn-danger" onclick="decideLeave('${l.id}','Từ chối')">Từ chối</button>` : ""}
           </td></tr>`;
-      }).join("") || "<tr><td colspan=6>Chưa có đơn</td></tr>"}</tbody></table>
+      }).join("") || "<tr><td colspan=7>Chưa có đơn</td></tr>"}</tbody></table></div>
+      ${DB.mailLog.length ? `<h3 style="margin-top:16px">Nhật ký gửi Gmail</h3>
+        ${[...DB.mailLog].reverse().slice(0,8).map(m => `<p class="muted">${fmtDate(m.at)} · ${m.to} · ${m.subject} · ${m.ok ? "Đã gửi" : m.note}</p>`).join("")}` : ""}
     </div>`;
 }
 function decideLeave(id, st) {
@@ -899,29 +991,35 @@ function decideLeave(id, st) {
   toast(st === "Duyệt" ? "Đã duyệt phép" : "Đã từ chối");
 }
 
-/* ================= CONFIG ================= */
+/* ================= CONFIG + Gmail ================= */
 function viewConfig() {
   $("#main").innerHTML = `
     <div class="topbar"><h2>Cấu hình hệ thống</h2>${topMeta()}</div>
-    <div class="card" style="max-width:560px">
-      <div class="field"><label>Năm học</label><input id="cfYear" value="${DB.config.year}"></div>
-      <div class="field"><label>Kỳ học</label>
-        <select id="cfTerm">
-          ${["Học kỳ 1","Học kỳ 2","Học kỳ hè"].map(t=>`<option ${DB.config.term===t?"selected":""}>${t}</option>`).join("")}
-        </select>
+    <div class="grid g-2">
+      <div class="card">
+        <h3>Năm học — kỳ — tuần</h3>
+        <div class="field"><label>Năm học</label><input id="cfYear" value="${DB.config.year}"></div>
+        <div class="field"><label>Kỳ học</label>
+          <select id="cfTerm">${["Học kỳ 1","Học kỳ 2","Học kỳ hè"].map(t=>`<option ${DB.config.term===t?"selected":""}>${t}</option>`).join("")}</select>
+        </div>
+        <div class="field"><label>Tuần hiện tại</label><input type="number" id="cfWeek" value="${DB.config.week}" min="1" max="22"></div>
+        <button class="btn btn-primary" onclick="saveConfig()">Lưu cấu hình</button>
+        <button class="btn btn-outline" onclick="if(confirm('Xóa dữ liệu local và seed lại?')){localStorage.removeItem(KEY);location.reload()}">Reset dữ liệu demo</button>
       </div>
-      <div class="field"><label>Tuần hiện tại</label><input type="number" id="cfWeek" value="${DB.config.week}" min="1" max="22"></div>
-      <div class="field"><label>Gmail nhận thông báo đơn phép</label><input id="cfMail" value="${DB.config.gmail}"></div>
-      <label style="display:flex;gap:8px;align-items:center;margin:10px 0">
-        <input type="checkbox" id="cfMailOn" ${DB.config.gmailNotify?"checked":""}> Bật thông báo Gmail mỗi khi SV tạo đơn
-      </label>
-      <button class="btn btn-primary" onclick="saveConfig()">Lưu cấu hình</button>
-      <button class="btn btn-outline" onclick="if(confirm('Xóa dữ liệu local và seed lại?')){localStorage.removeItem(KEY);location.reload()}">Reset dữ liệu demo</button>
+      <div class="card">
+        <h3>Gửi Gmail khi sinh viên tạo đơn nghỉ phép</h3>
+        <div class="field"><label>Gmail nhận thông báo</label><input id="cfMail" value="${DB.config.gmail}" placeholder="gvcn@gmail.com"></div>
+        <label style="display:flex;gap:8px;align-items:center;margin:10px 0">
+          <input type="checkbox" id="cfMailOn" ${DB.config.gmailNotify?"checked":""}> Bật gửi thông báo mỗi khi có đơn mới
+        </label>
+        <p class="muted">Hệ thống gửi thư tới địa chỉ trên qua FormSubmit khi sinh viên nộp đơn. Lần đầu Gmail cần xác nhận email từ FormSubmit. Nếu trình duyệt chặn, hệ thống mở hộp thư soạn sẵn (mailto).</p>
+        <button class="btn btn-ghost" onclick="saveConfig(); testMail()">Gửi thư kiểm tra</button>
+      </div>
     </div>`;
 }
 function saveConfig() {
   const mail = $("#cfMail").value.trim();
-  if (mail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) return toast("Gmail không hợp lệ");
+  if (mail && !validEmail(mail)) return toast("Gmail không hợp lệ");
   DB.config.year = $("#cfYear").value.trim();
   DB.config.term = $("#cfTerm").value;
   DB.config.week = +$("#cfWeek").value || 1;
@@ -929,36 +1027,93 @@ function saveConfig() {
   DB.config.gmailNotify = $("#cfMailOn").checked;
   save(DB); paint(); toast("Đã lưu cấu hình");
 }
+async function sendLeaveMail(leave, student) {
+  if (!DB.config.gmailNotify || !validEmail(DB.config.gmail)) return;
+  const subject = `[GVCN] Don nghi phep moi — ${student.mssv} ${student.name}`;
+  const text = [
+    `Sinh viên: ${student.name} (${student.mssv})`,
+    `Lớp: ${className(student.classId)}`,
+    `Từ ngày: ${leave.from}`,
+    `Đến ngày: ${leave.to}`,
+    `Lý do: ${leave.reason}`,
+    `Nguồn: ${leave.source || "Form"}`,
+    `Trạng thái: ${leave.status}`
+  ].join("\n");
+  let ok = false, note = "";
+  try {
+    const res = await fetch("https://formsubmit.co/ajax/" + encodeURIComponent(DB.config.gmail), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        _subject: subject,
+        name: student.name,
+        mssv: student.mssv,
+        message: text
+      })
+    });
+    ok = res.ok;
+    if (!ok) note = "FormSubmit chưa xác nhận hoặc bị chặn";
+  } catch {
+    note = "Không gửi được qua máy chủ, đã mở mailto";
+    location.href = `mailto:${DB.config.gmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`;
+  }
+  DB.mailLog.push({ id: uid("ml"), at: todayISO(), to: DB.config.gmail, subject, ok, note });
+  save(DB);
+  toast(ok ? "Đã gửi thông báo tới " + DB.config.gmail : (note || "Đã ghi nhận thông báo Gmail"));
+}
+function testMail() {
+  const st = { name: DB.teacher.name, mssv: "TEST", classId: DB.classes[0]?.id };
+  sendLeaveMail({ from: todayISO(), to: todayISO(), reason: "Thu kiem tra cau hinh Gmail", status: "Chờ duyệt", source: "Hệ thống" }, st);
+}
 
-/* ================= STUDENT VIEWS ================= */
+/* ================= STUDENT INFO ================= */
 function viewSvInfo() {
   const s = studentById(SESSION.studentId);
   $("#main").innerHTML = `
-    <div class="topbar"><h2>Thông tin sinh viên</h2>${topMeta()}</div>
-    <div class="grid g-2">
-      <div class="card">
+    <div class="topbar"><h2>Hồ sơ sinh viên</h2>${topMeta()}</div>
+    <div class="profile-hero">
+      <div class="ava">${s.name.split(" ").slice(-1)[0].slice(0,1)}</div>
+      <div>
+        <div class="muted" style="color:#b7cfc6;letter-spacing:.12em;text-transform:uppercase;font-size:11px">Sinh viên · ${className(s.classId)}</div>
         <h3>${s.name}</h3>
-        <p>MSSV: <b>${s.mssv}</b></p>
-        <p>Lớp: ${className(s.classId)}</p>
-        <p>Giới tính: ${s.gender} · Ngày sinh: ${s.dob}</p>
-        <p>SĐT: ${s.phone}</p>
-        <p>Tình trạng: <span class="badge ok">${s.status}</span></p>
-        <p>Ban cán sự: ${s.officer}</p>
-        <p>Tài khoản: ${s.username}</p>
+        <p style="color:#d5ebe3;margin-top:4px">${s.mssv} · ${s.gender} · ${fmtDate(s.dob)}</p>
+      </div>
+      <span class="badge ok">${s.status}</span>
+    </div>
+    <div class="grid g-2" style="margin-top:14px">
+      <div class="card">
+        <h3>Thông tin học tập</h3>
+        <div class="kv">
+          <b>Mã số</b><span>${s.mssv}</span>
+          <b>Lớp</b><span>${className(s.classId)}</span>
+          <b>Ban cán sự</b><span>${s.officer}</span>
+          <b>Tài khoản</b><span>${s.username}</span>
+          <b>Số điện thoại</b><span>${s.phone || "—"}</span>
+        </div>
       </div>
       <div class="card">
-        <h3>Gia đình & địa chỉ</h3>
-        <p>Cha: ${s.father || "—"} · ${s.fatherPhone || ""}</p>
-        <p>Mẹ: ${s.mother || "—"} · ${s.motherPhone || ""}</p>
-        <p>Thường trú: ${s.addrThuongTru || "—"}</p>
-        <p>Cư trú: ${s.addrCuTru || "—"}</p>
+        <h3>Gia đình và nơi ở</h3>
+        <div class="kv">
+          <b>Họ tên cha</b><span>${s.father || "—"} · ${s.fatherPhone || ""}</span>
+          <b>Họ tên mẹ</b><span>${s.mother || "—"} · ${s.motherPhone || ""}</span>
+          <b>Thường trú</b><span>${s.addrThuongTru || "—"}</span>
+          <b>Cư trú</b><span>${s.addrCuTru || "—"}</span>
+        </div>
       </div>
     </div>`;
 }
+
+/* ================= STUDENT LEAVE + QR ================= */
+function qrPayload(s) {
+  return JSON.stringify({ type: "LEAVE", mssv: s.mssv, name: s.name, class: className(s.classId) });
+}
+function qrImageUrl(s) {
+  return "https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=8&data=" + encodeURIComponent(qrPayload(s));
+}
+
 function viewSvLeave() {
   const s = studentById(SESSION.studentId);
-  const mine = DB.leaves.filter(l => l.studentId === s.id);
-  const payload = JSON.stringify({ t: "leave", mssv: s.mssv, name: s.name });
+  const mine = DB.leaves.filter(l => l.studentId === s.id).reverse();
   $("#main").innerHTML = `
     <div class="topbar"><h2>Nghỉ phép</h2>${topMeta()}</div>
     <div class="grid g-2">
@@ -966,84 +1121,148 @@ function viewSvLeave() {
         <h3>Tạo đơn nghỉ phép</h3>
         <div class="field"><label>Từ ngày</label><input type="date" id="lvFrom" value="${todayISO()}"></div>
         <div class="field"><label>Đến ngày</label><input type="date" id="lvTo" value="${todayISO()}"></div>
-        <div class="field"><label>Lý do</label><textarea id="lvReason" rows="3"></textarea></div>
-        <button class="btn btn-primary" onclick="submitLeave()">Gửi đơn</button>
-        <p class="muted" style="margin-top:8px">Hoặc quét mã QR bên cạnh để điền nhanh định danh.</p>
+        <div class="field"><label>Lý do</label><textarea id="lvReason" rows="3" placeholder="Nêu rõ lý do nghỉ"></textarea></div>
+        <div class="toolbar">
+          <button class="btn btn-primary" onclick="submitLeave('Form')">Gửi đơn</button>
+          <button class="btn btn-ghost" onclick="submitLeave('Mã QR')">Tạo đơn bằng mã QR</button>
+        </div>
       </div>
       <div class="card">
-        <h3>Mã QR tạo đơn</h3>
-        <div class="qr-box"><canvas id="qrCanvas"></canvas></div>
-        <p class="muted">Nội dung QR: MSSV ${s.mssv}. GV / thiết bị quét có thể nhận diện để mở form.</p>
-        <button class="btn btn-ghost" onclick="fillFromQR()">Dùng QR để mở form sẵn</button>
-        <h3 style="margin-top:16px">Đơn của em</h3>
-        ${mine.map(l => `<p>${l.from} → ${l.to} · ${l.reason}
-          <span class="badge ${l.status==="Duyệt"?"ok":l.status==="Từ chối"?"bad":"warn"}">${l.status}</span></p>`).join("") || "<p class='empty'>Chưa có đơn</p>"}
+        <h3>Mã QR của sinh viên</h3>
+        <div class="qr-box">
+          <img id="qrImg" alt="Mã QR nghỉ phép" src="${qrImageUrl(s)}" width="200" height="200" />
+        </div>
+        <p class="muted" style="text-align:center;margin-top:8px">Mã định danh ${s.mssv}. Dùng nút “Tạo đơn bằng mã QR” hoặc quét camera.</p>
+        <div class="toolbar" style="justify-content:center">
+          <button class="btn btn-outline" onclick="startQrScan()">Quét mã QR bằng camera</button>
+          <button class="btn btn-outline" onclick="stopQr()">Dừng camera</button>
+        </div>
+        <div id="qrReader" style="margin-top:8px"></div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h3>Danh sách đơn của em</h3>
+      <div class="leave-list">
+        ${mine.length ? mine.map(l => `
+          <div class="leave-item">
+            <div>
+              <b>${fmtDate(l.from)} → ${fmtDate(l.to)}</b>
+              <div class="muted">${l.reason}</div>
+              <div class="muted">Nguồn: ${l.source || "Form"} · Gửi ${fmtDate(l.createdAt)}</div>
+            </div>
+            <span class="badge ${l.status==="Duyệt"?"ok":l.status==="Từ chối"?"bad":"warn"}">${l.status}</span>
+          </div>`).join("") : "<p class='empty'>Chưa có đơn nghỉ phép</p>"}
       </div>
     </div>`;
-  if (window.QRCode) {
-    QRCode.toCanvas($("#qrCanvas"), payload, { width: 180, color: { dark: "#14532d", light: "#ffffff" } });
+}
+
+function stopQr() {
+  if (qrScanner) {
+    qrScanner.stop().catch(() => {});
+    qrScanner = null;
   }
 }
-function fillFromQR() {
-  toast("Đã nhận diện QR · điền sẵn MSSV " + studentById(SESSION.studentId).mssv);
+function startQrScan() {
+  if (!window.Html5Qrcode) return toast("Thư viện quét QR chưa tải xong, thử lại sau vài giây");
+  const box = $("#qrReader");
+  if (!box) return;
+  box.innerHTML = "";
+  const scanner = new Html5Qrcode("qrReader");
+  qrScanner = scanner;
+  scanner.start(
+    { facingMode: "environment" },
+    { fps: 8, qrbox: { width: 220, height: 220 } },
+    (text) => {
+      stopQr();
+      applyQrText(text);
+    }
+  ).catch(() => toast("Không mở được camera. Hãy dùng nút Tạo đơn bằng mã QR."));
+}
+function applyQrText(text) {
+  try {
+    const data = JSON.parse(text);
+    const s = studentById(SESSION.studentId);
+    if (data.mssv && data.mssv !== s.mssv) return toast("Mã QR không thuộc tài khoản đang đăng nhập");
+  } catch { /* plain text ok */ }
+  toast("Đã nhận mã QR. Điền ngày và lý do rồi gửi.");
   $("#lvReason")?.focus();
 }
-function submitLeave() {
-  const reason = $("#lvReason").value.trim();
+
+async function submitLeave(source) {
+  const s = studentById(SESSION.studentId);
+  const reason = ($("#lvReason").value.trim() || (source === "Mã QR" ? "Nghỉ phép tạo từ mã QR định danh " + s.mssv : ""));
   if (!reason) return toast("Nhập lý do nghỉ");
   const rec = {
     id: uid("lv"), studentId: SESSION.studentId,
     from: $("#lvFrom").value, to: $("#lvTo").value, reason,
-    status: "Chờ duyệt", createdAt: new Date().toISOString()
+    status: "Chờ duyệt", source, createdAt: new Date().toISOString()
   };
-  DB.leaves.push(rec); save(DB);
-  if (DB.config.gmailNotify) {
-    toast("Đã gửi đơn · thông báo tới " + DB.config.gmail);
-  } else toast("Đã gửi đơn nghỉ phép");
+  DB.leaves.push(rec);
+  save(DB);
+  toast("Đã gửi đơn — trạng thái: Chờ duyệt");
+  await sendLeaveMail(rec, s);
   paint();
 }
 
+/* ================= WEEKLY REPORT UI ================= */
 function viewSvWeek() {
   const s = studentById(SESSION.studentId);
   const existed = DB.reports.find(r => r.studentId === s.id && r.week === DB.config.week && r.year === DB.config.year && r.term === DB.config.term);
+  const a = existed?.answers || {};
   $("#main").innerHTML = `
-    <div class="topbar"><h2>Báo cáo tuần ${DB.config.week}</h2>${topMeta()}</div>
-    <div class="card" style="max-width:720px">
-      ${existed ? `<p class="badge ok">Em đã nộp báo cáo tuần này</p>` : ""}
-      <div class="field"><label>${QUESTION.STUDENT}</label><input value="${s.name}" disabled></div>
-      <div class="field"><label>${QUESTION.WEEK}</label><input value="Tuần ${DB.config.week} · ${DB.config.term} · ${DB.config.year}" disabled></div>
-      <div class="form-grid">
-        <div class="field"><label>${QUESTION.ABSENT}</label><input type="number" id="qABSENT" min="0" value="${existed?.answers.ABSENT||0}"></div>
-        <div class="field"><label>${QUESTION.LATE}</label><input type="number" id="qLATE" min="0" value="${existed?.answers.LATE||0}"></div>
-        <div class="field span-2"><label>${QUESTION.ABSENT_SESSION}</label><input id="qABSENT_SESSION" value="${existed?.answers.ABSENT_SESSION||""}" placeholder="VD: Thứ 3 tiết 1-2"></div>
-        <div class="field span-2"><label>${QUESTION.ABSENT_REASON}</label><input id="qABSENT_REASON" value="${existed?.answers.ABSENT_REASON||""}"></div>
-        <div class="field"><label>${QUESTION.REPORTED}</label>
-          <select id="qREPORTED"><option>Chưa</option><option>Đã báo</option></select></div>
-        <div class="field"><label>${QUESTION.LEARNING}</label>
-          <select id="qLEARNING"><option>Tốt</option><option>Ổn</option><option>Yếu</option><option>Rất tốt</option></select></div>
-        <div class="field"><label>${QUESTION.DIFFICULTY}</label>
-          <select id="qDIFFICULTY"><option>Không</option><option>Có</option></select></div>
-        <div class="field span-2"><label>${QUESTION.DIFFICULTY_DETAIL}</label><input id="qDIFFICULTY_DETAIL" value="${existed?.answers.DIFFICULTY_DETAIL||""}"></div>
-        <div class="field"><label>${QUESTION.SUBJECT}</label><input id="qSUBJECT" value="${existed?.answers.SUBJECT||""}"></div>
-        <div class="field"><label>${QUESTION.ASSIGNMENT}</label>
-          <select id="qASSIGNMENT"><option>Không</option><option>Có</option></select></div>
-        <div class="field span-2"><label>${QUESTION.MOTIVATION}</label><input id="qMOTIVATION" value="${existed?.answers.MOTIVATION||""}"></div>
-        <div class="field span-2"><label>${QUESTION.IMPACT}</label><input id="qIMPACT" value="${existed?.answers.IMPACT||""}"></div>
-        <div class="field"><label>${QUESTION.SUPPORT}</label>
-          <select id="qSUPPORT"><option>Không</option><option>Có</option></select></div>
-        <div class="field"><label>${QUESTION.PRIVATE}</label>
-          <select id="qPRIVATE"><option>Không</option><option>Có</option></select></div>
-        <div class="field span-2"><label>${QUESTION.SUPPORT_DETAIL}</label><input id="qSUPPORT_DETAIL" value="${existed?.answers.SUPPORT_DETAIL||""}"></div>
-        <div class="field span-2"><label>${QUESTION.OTHER}</label><textarea id="qOTHER" rows="3">${existed?.answers.OTHER||""}</textarea></div>
+    <div class="topbar"><h2>Báo cáo tuần</h2>${topMeta()}</div>
+    <div class="card report-sheet">
+      <div class="report-head">
+        <div class="org">Lớp chủ nhiệm · ${DB.config.year}</div>
+        <h3>Báo cáo tuần ${DB.config.week}</h3>
+        <p class="muted">${DB.config.term} · ${s.name} · ${s.mssv} · ${className(s.classId)}</p>
+        ${existed ? `<p style="margin-top:8px"><span class="badge ok">Đã nộp báo cáo tuần này</span></p>` : ""}
       </div>
-      <button class="btn btn-primary" onclick="submitWeek()">${existed ? "Cập nhật báo cáo" : "Nộp báo cáo tuần"}</button>
+      <div class="q-block">
+        <h4>1. Chuyên cần</h4>
+        <div class="form-grid">
+          <div class="field"><label>${QUESTION.ABSENT}</label><input type="number" id="qABSENT" min="0" value="${a.ABSENT||0}"></div>
+          <div class="field"><label>${QUESTION.LATE}</label><input type="number" id="qLATE" min="0" value="${a.LATE||0}"></div>
+          <div class="field span-2"><label>${QUESTION.ABSENT_SESSION}</label><input id="qABSENT_SESSION" value="${a.ABSENT_SESSION||""}" placeholder="Ví dụ: Thứ 3, tiết 1–2"></div>
+          <div class="field span-2"><label>${QUESTION.ABSENT_REASON}</label><input id="qABSENT_REASON" value="${a.ABSENT_REASON||""}"></div>
+          <div class="field"><label>${QUESTION.REPORTED}</label>
+            <select id="qREPORTED"><option>Chưa</option><option>Đã báo</option></select></div>
+        </div>
+      </div>
+      <div class="q-block">
+        <h4>2. Học tập</h4>
+        <div class="form-grid">
+          <div class="field"><label>${QUESTION.LEARNING}</label>
+            <select id="qLEARNING"><option>Tốt</option><option>Ổn</option><option>Yếu</option><option>Rất tốt</option></select></div>
+          <div class="field"><label>${QUESTION.DIFFICULTY}</label>
+            <select id="qDIFFICULTY"><option>Không</option><option>Có</option></select></div>
+          <div class="field span-2"><label>${QUESTION.DIFFICULTY_DETAIL}</label><input id="qDIFFICULTY_DETAIL" value="${a.DIFFICULTY_DETAIL||""}"></div>
+          <div class="field"><label>${QUESTION.SUBJECT}</label><input id="qSUBJECT" value="${a.SUBJECT||""}"></div>
+          <div class="field"><label>${QUESTION.ASSIGNMENT}</label>
+            <select id="qASSIGNMENT"><option>Không</option><option>Có</option></select></div>
+          <div class="field span-2"><label>${QUESTION.MOTIVATION}</label><input id="qMOTIVATION" value="${a.MOTIVATION||""}"></div>
+        </div>
+      </div>
+      <div class="q-block">
+        <h4>3. Hỗ trợ từ giáo viên chủ nhiệm</h4>
+        <div class="form-grid">
+          <div class="field span-2"><label>${QUESTION.IMPACT}</label><input id="qIMPACT" value="${a.IMPACT||""}"></div>
+          <div class="field"><label>${QUESTION.SUPPORT}</label>
+            <select id="qSUPPORT"><option>Không</option><option>Có</option></select></div>
+          <div class="field"><label>${QUESTION.PRIVATE}</label>
+            <select id="qPRIVATE"><option>Không</option><option>Có</option></select></div>
+          <div class="field span-2"><label>${QUESTION.SUPPORT_DETAIL}</label><input id="qSUPPORT_DETAIL" value="${a.SUPPORT_DETAIL||""}"></div>
+          <div class="field span-2"><label>${QUESTION.OTHER}</label><textarea id="qOTHER" rows="3">${a.OTHER||""}</textarea></div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-primary" onclick="submitWeek()">${existed ? "Cập nhật báo cáo" : "Nộp báo cáo tuần"}</button>
+      </div>
     </div>`;
-  if (existed) {
-    ["REPORTED","LEARNING","DIFFICULTY","ASSIGNMENT","SUPPORT","PRIVATE"].forEach(k => {
-      const el = document.getElementById("q" + k);
-      if (el && existed.answers[k]) el.value = existed.answers[k];
-    });
-  }
+  ["REPORTED","LEARNING","DIFFICULTY","ASSIGNMENT","SUPPORT","PRIVATE"].forEach(k => {
+    const el = document.getElementById("q" + k);
+    if (el && a[k]) el.value = a[k];
+  });
 }
 function submitWeek() {
   const answers = {};
@@ -1055,22 +1274,21 @@ function submitWeek() {
     id: uid("rp"), studentId: SESSION.studentId, week: DB.config.week,
     year: DB.config.year, term: DB.config.term, answers, createdAt: new Date().toISOString()
   });
-  if ((answers.SUPPORT === "Có") || Number(answers.ABSENT) > 2) {
+  if (answers.SUPPORT === "Có" || Number(answers.ABSENT) > 2) {
     const sid = SESSION.studentId;
     if (!DB.issues.some(i => i.studentId === sid && i.week === DB.config.week)) {
       DB.issues.push({
         id: uid("is"), studentId: sid,
         type: Number(answers.ABSENT) > 2 ? "Nghiêm trọng" : "Cần hỗ trợ",
         text: answers.SUPPORT_DETAIL || answers.DIFFICULTY_DETAIL || "Từ báo cáo tuần",
-        week: DB.config.week, reported: true
+        week: DB.config.week, reported: true, date: todayISO()
       });
     }
   }
   save(DB); toast("Đã lưu báo cáo tuần"); paint();
 }
 
-/* modal helpers */
-function showModal(html) { const o = $("#overlay"); o.classList.add("show"); $("#modal").innerHTML = html; }
+function showModal(html) { $("#overlay").classList.add("show"); $("#modal").innerHTML = html; }
 function hideModal() { $("#overlay").classList.remove("show"); }
 
 window.addEventListener("DOMContentLoaded", () => {
@@ -1080,4 +1298,9 @@ window.addEventListener("DOMContentLoaded", () => {
   });
   $("#btnLogin").onclick = login;
   $("#loginPass").addEventListener("keydown", e => { if (e.key === "Enter") login(); });
+  $("#btnMenu")?.addEventListener("click", () => {
+    $("#sidebar").classList.toggle("open");
+    $("#backdrop").classList.toggle("show");
+  });
+  $("#backdrop")?.addEventListener("click", closeSidebar);
 });
