@@ -20,12 +20,14 @@
       </div>
       <div class="login-form">
         <h2>Đăng nhập</h2>
-        <p class="sub">Chọn vai trò và nhập tài khoản được cấp.</p>
+        <p class="sub">Nhập tài khoản được cấp. Hệ thống tự nhận vai trò.</p>
         <div class="role-pills">
-          <button class="active" data-role="gv" type="button">Giáo viên</button>
+          <button class="active" data-role="auto" type="button">Tự nhận</button>
+          <button data-role="gv" type="button">Giáo viên</button>
           <button data-role="sv" type="button">Sinh viên</button>
           <button data-role="ad" type="button">Quản trị</button>
         </div>
+        <p class="form-error" id="loginErr">Tài khoản hoặc mật khẩu không đúng</p>
         <div class="field">
           <label>Tài khoản / MSSV</label>
           <input id="loginUser" autocomplete="username" />
