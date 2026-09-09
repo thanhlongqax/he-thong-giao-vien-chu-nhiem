@@ -15,7 +15,7 @@
         <div>
           <div class="brand-mark">QLLH</div>
           <h1>Hệ thống quản lý lớp học</h1>
-          <p>Công cụ làm việc của giáo viên chủ nhiệm và cổng hỗ trợ sinh viên: lớp học, chuyên cần, nghỉ phép và báo cáo tuần.</p>
+          <p>Quản lý lớp chủ nhiệm, theo dõi sinh viên và hỗ trợ học tập trên một nền tảng thống nhất.</p>
         </div>
       </div>
       <div class="login-form">
@@ -24,6 +24,7 @@
         <div class="role-pills">
           <button class="active" data-role="gv" type="button">Giáo viên</button>
           <button data-role="sv" type="button">Sinh viên</button>
+          <button data-role="ad" type="button">Quản trị</button>
         </div>
         <div class="field">
           <label>Tài khoản / MSSV</label>
@@ -31,7 +32,10 @@
         </div>
         <div class="field">
           <label>Mật khẩu</label>
-          <input id="loginPass" type="password" autocomplete="current-password" />
+          <div class="pw-wrap">
+            <input id="loginPass" type="password" autocomplete="current-password" />
+            <button class="pw-toggle" type="button" onclick="togglePw('loginPass', this)">Hiện</button>
+          </div>
         </div>
         <button class="btn btn-primary full" id="btnLogin" type="button">Đăng nhập</button>
       </div>
