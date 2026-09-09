@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Logo hệ thống quản lý lớp học">
+  <rect x="2" y="2" width="60" height="60" rx="16" fill="#ffffff"/>
+  <path d="M12 42c8-2 14-8 20-16 2 8 8 14 20 16-10 6-20 8-40 0z" fill="#16a34a"/>
+  <path d="M12 42c8-1.5 13-6 20-14 2 7 8 12.5 20 14-10 5-20 7-40 0z" fill="#22c55e"/>
+  <path d="M32 14c6 7 9 14 10 22-7-3-13-3-20 0 2-8 6-15 10-22z" fill="#4ade80"/>
+  <path d="M32 14c-1 6-1 12 0 18 3-2 6-2 10-1-1-7-5-13-10-17z" fill="#86efac"/>
+</svg>

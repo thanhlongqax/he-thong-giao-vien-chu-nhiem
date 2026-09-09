@@ -115,12 +115,18 @@ a { color: inherit; text-decoration: none; }
 .btn-primary { background: var(--green-2); color: #fff; }
 .btn-primary:hover { background: #15803d; }
 .pw-wrap { position: relative; }
-.pw-wrap input { padding-right: 64px; }
+.pw-wrap input { padding-right: 44px; }
 .pw-wrap .pw-toggle {
-  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
-  border: 0; background: transparent; color: var(--green-2);
-  font-weight: 650; font-size: 12px; cursor: pointer;
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  border: 0; background: transparent; color: #111;
+  width: 34px; height: 34px; cursor: pointer;
+  display: grid; place-items: center; padding: 0;
 }
+.pw-wrap .pw-toggle svg { width: 18px; height: 18px; display: block; }
+.brand-logo, .logo-img {
+  width: 36px; height: 36px; border-radius: 10px; object-fit: cover; background: #fff;
+}
+.login-art .brand-logo { width: 52px; height: 52px; border-radius: 14px; }
 .date-row { display: grid; grid-template-columns: 1fr 1.2fr 1fr; gap: 8px; }
 .btn-ghost { background: var(--green-soft); color: var(--green-2); }
 .btn-danger { background: var(--danger-soft); color: var(--danger); }

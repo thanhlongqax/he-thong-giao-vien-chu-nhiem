@@ -5,6 +5,11 @@ const KEY = "gvcn_system_v3";
 const SESS_KEY = "gvcn_session_v3";
 const MONTHS_VI = ["Tháng 1","Tháng 2","Tháng 3","Tháng 4","Tháng 5","Tháng 6","Tháng 7","Tháng 8","Tháng 9","Tháng 10","Tháng 11","Tháng 12"];
 const WEEKDAYS = ["Thứ 2","Thứ 3","Thứ 4","Thứ 5","Thứ 6","Thứ 7","Chủ nhật"];
+const ICO_DOTS = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="2.1" fill="#111"/><circle cx="12" cy="12" r="2.1" fill="#111"/><circle cx="18" cy="12" r="2.1" fill="#111"/></svg>';
+const ICO_EYE = '<svg viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3" fill="#111"/></svg>';
+function pwToggleBtn(id) {
+  return `<button class="pw-toggle" type="button" onclick="togglePw('${id}', this)" aria-label="Hiện mật khẩu">${ICO_DOTS}</button>`;
+}
 const QUESTION = {
   STUDENT: "Họ và tên",
   WEEK: "Tuần học",
@@ -107,10 +112,15 @@ function seed() {
       gmail: ""
     },
     admin: { name: "Quản trị hệ thống", username: "admin", password: "123456" },
+    faculties: [
+      { id: "k1", name: "Kinh tế", locked: false },
+      { id: "k2", name: "Công nghệ thông tin", locked: false },
+      { id: "k3", name: "Cơ khí", locked: false }
+    ],
     teachers: [{
       id: "gv1", name: "Nguyễn Thị Hồng", dob: "1988-05-12",
-      position: "Giảng viên", title: "Giáo viên chủ nhiệm", faculty: "Kinh tế",
-      username: "gv", password: "123456"
+      position: "Giảng viên", title: "Giáo viên chủ nhiệm", facultyId: "k1",
+      username: "gv", password: "123456", active: true
     }],
     teacher: { name: "Nguyễn Thị Hồng", username: "gv", password: "123456" },
     classes, students, subjects, assigns, attendance, leaves,
@@ -146,6 +156,13 @@ function migrate(db) {
   if (!db.config) db.config = seed().config;
   if (!Array.isArray(db.mailLog)) db.mailLog = [];
   if (!db.admin) db.admin = { name: "Quản trị hệ thống", username: "admin", password: "123456" };
+  if (!Array.isArray(db.faculties) || !db.faculties.length) {
+    db.faculties = [
+      { id: "k1", name: "Kinh tế", locked: false },
+      { id: "k2", name: "Công nghệ thông tin", locked: false },
+      { id: "k3", name: "Cơ khí", locked: false }
+    ];
+  }
   if (!Array.isArray(db.teachers)) {
     db.teachers = [{
       id: "gv1",
@@ -155,9 +172,20 @@ function migrate(db) {
       title: "Giáo viên chủ nhiệm",
       faculty: "Kinh tế",
       username: db.teacher?.username || "gv",
-      password: db.teacher?.password || "123456"
+      password: db.teacher?.password || "123456",
+      facultyId: "k1",
+      active: true
     }];
   }
+  db.teachers.forEach(t => {
+    if (!t.facultyId) {
+      const f = (db.faculties || []).find(x => x.name === t.faculty);
+      t.facultyId = f?.id || (db.faculties?.[0]?.id || "");
+    }
+    if (t.active === undefined) t.active = true;
+  });
+  (db.tasks || []).forEach(t => { if (!t.session) t.session = "Cả ngày"; });
+  (db.leaves || []).forEach(l => { if (!l.session) l.session = "Cả ngày"; });
   (db.assigns || []).forEach(a => {
     if (!a.classIds) a.classIds = a.classId ? [a.classId] : [];
   });
@@ -187,6 +215,7 @@ let editTarget = null;
 let REP_MODE = "week";
 let CAL_CURSOR = new Date();
 let LV_FILTER = { period: "week", pending: false, classId: "", studentId: "" };
+let TASK_FILTER = "today";
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -195,7 +224,19 @@ function togglePw(id, btn) {
   const el = document.getElementById(id);
   if (!el) return;
   el.type = el.type === "password" ? "text" : "password";
-  if (btn) btn.textContent = el.type === "password" ? "Hiện" : "Ẩn";
+  if (btn) {
+    const hidden = el.type === "password";
+    btn.innerHTML = hidden ? ICO_DOTS : ICO_EYE;
+    btn.setAttribute("aria-label", hidden ? "Hiện mật khẩu" : "Ẩn mật khẩu");
+  }
+}
+function weekdayOf(iso) {
+  if (!iso) return "";
+  const d = new Date(iso + "T00:00:00");
+  return ["Chủ nhật","Thứ 2","Thứ 3","Thứ 4","Thứ 5","Thứ 6","Thứ 7"][d.getDay()];
+}
+function facultyName(id) {
+  return (DB.faculties || []).find(f => f.id === id)?.name || id || "—";
 }
 function dateSelectHTML(prefix, value) {
   const [yy, mm, dd] = String(value || "").split("-");
@@ -263,6 +304,7 @@ function login() {
   }
   if (role === "gv") {
     const gv = DB.teachers.find(t => t.username === user && t.password === pass);
+    if (gv && gv.active === false) { toast("Tài khoản giáo viên đang không hoạt động"); return; }
     if (gv) {
       SESSION = { role: "gv", name: gv.name, username: gv.username, teacherId: gv.id };
       persistSession(); enterApp(); return;
@@ -313,6 +355,7 @@ function renderShell() {
   ];
   const navAD = [
     ["teachers", "Quản lý giáo viên"],
+    ["faculties", "Quản lý khoa"],
     ["config", "Cấu hình"],
     ["pw", "Đổi mật khẩu"]
   ];
@@ -323,7 +366,7 @@ function renderShell() {
   if ($("#mobileTitle")) $("#mobileTitle").textContent = isAD ? "Quản trị" : isGV ? "Quản lý lớp học" : "Hỗ trợ sinh viên";
   $("#sidebar").innerHTML = `
     <div class="side-brand">
-      <div class="logo">QL</div>
+      <img class="logo-img" src="assets/logo.svg" alt="Logo">
       <div><b>${brandTitle}</b><span>${brandSub}</span></div>
     </div>
     <div class="nav">${nav.map(([id, lb]) => `<button data-view="${id}">${lb}</button>`).join("")}</div>
@@ -357,7 +400,7 @@ function paint() {
     dash: viewDash, classes: viewClasses, students: viewStudents, homeroom: viewHomeroom,
     subjects: viewSubjects, attend: viewAttend, work: viewWork, schedule: viewSchedule,
     report: viewReport, leave: viewLeave, config: viewConfig, teachers: viewTeachers,
-    pw: viewPassword, svinfo: viewSvInfo, svleave: viewSvLeave, svweek: viewSvWeek
+    pw: viewPassword, faculties: viewFaculties, svinfo: viewSvInfo, svleave: viewSvLeave, svweek: viewSvWeek
   };
   (map[VIEW] || viewDash)();
 }
@@ -553,7 +596,7 @@ function openSvModal(id) {
       <div class="field"><label>Mật khẩu</label>
         <div class="pw-wrap">
           <input id="svPass" type="password" value="${s.password}">
-          <button class="pw-toggle" type="button" onclick="togglePw('svPass', this)">Hiện</button>
+          ${pwToggleBtn("svPass")}
         </div>
       </div>
     </div>
@@ -908,14 +951,25 @@ function viewWork() {
     <div class="topbar"><h2>Công việc</h2>${topMeta()}</div>
     <div class="grid g-2">
       <div class="card">
-        <h3>Danh sách công việc <button class="btn btn-sm btn-primary" onclick="openTaskModal()">Tạo việc</button></h3>
-        ${DB.tasks.map(t => `
+        <h3>Danh sách công việc hôm nay <button class="btn btn-sm btn-primary" onclick="openTaskModal()">Tạo việc</button></h3>
+        <div class="toolbar">
+          <button class="btn btn-sm ${TASK_FILTER==="today"?"btn-primary":"btn-outline"}" onclick="TASK_FILTER='today';paint()">Hôm nay</button>
+          <button class="btn btn-sm ${TASK_FILTER==="todo"?"btn-primary":"btn-outline"}" onclick="TASK_FILTER='todo';paint()">Chưa hoàn thành</button>
+          <button class="btn btn-sm ${TASK_FILTER==="done"?"btn-primary":"btn-outline"}" onclick="TASK_FILTER='done';paint()">Hoàn thành</button>
+        </div>
+        ${DB.tasks.filter(t => {
+          const isToday = t.date === todayISO() || t.type === "Hôm nay";
+          if (TASK_FILTER === "today") return isToday;
+          if (TASK_FILTER === "todo") return !t.done;
+          if (TASK_FILTER === "done") return t.done;
+          return true;
+        }).map(t => `
           <div class="assign-card ${t.done?"task-done":"task-todo"}" style="margin-bottom:8px">
             <div class="head">
               <label style="display:flex;gap:8px;align-items:center">
                 <input type="checkbox" ${t.done?"checked":""} onchange="toggleTask('${t.id}')">
                 <span style="${t.done?"text-decoration:line-through":""}"><b>${t.title}</b>
-                  <div class="muted">${t.type} · ${fmtDate(t.date)} · ${t.done?"Hoàn thành":"Chưa hoàn thành"}</div>
+                  <div class="muted">${fmtDate(t.date)} · ${t.session||"Cả ngày"} · ${t.done?"Hoàn thành":"Chưa hoàn thành"}</div>
                 </span>
               </label>
               <div>
@@ -939,13 +993,17 @@ function viewWork() {
 }
 function shiftCal(n) { CAL_CURSOR = new Date(CAL_CURSOR.getFullYear(), CAL_CURSOR.getMonth() + n, 1); paint(); }
 function openTaskModal(id) {
-  const t = id ? DB.tasks.find(x => x.id === id) : { title: "", date: todayISO(), type: "Hôm nay", done: false };
+  const t = id ? DB.tasks.find(x => x.id === id) : { title: "", date: todayISO(), session: "Sáng", done: false };
   editTarget = id || null;
   showModal(`<h3>${id?"Sửa":"Tạo"} công việc</h3>
     <div class="field"><label>Tiêu đề</label><input id="tkTitle" value="${t.title||""}"></div>
     <div class="form-grid">
       <div class="field"><label>Ngày</label><input type="date" id="tkDate" value="${t.date||todayISO()}"></div>
-      <div class="field"><label>Nhóm</label><select id="tkType"><option ${t.type==="Hôm nay"?"selected":""}>Hôm nay</option><option ${t.type==="Tuần này"?"selected":""}>Tuần này</option></select></div>
+      <div class="field"><label>Buổi</label>
+        <select id="tkSes">
+          ${["Sáng","Chiều","Cả ngày"].map(x=>`<option ${ (t.session||"Sáng")===x?"selected":""}>${x}</option>`).join("")}
+        </select>
+      </div>
     </div>
     <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="tkDone" ${t.done?"checked":""}> Đánh dấu hoàn thành</label>
     <div class="modal-actions">
@@ -954,7 +1012,7 @@ function openTaskModal(id) {
     </div>`);
 }
 function saveTask() {
-  const rec = { title: $("#tkTitle").value.trim(), date: $("#tkDate").value, type: $("#tkType").value, done: $("#tkDone").checked };
+  const rec = { title: $("#tkTitle").value.trim(), date: $("#tkDate").value, session: $("#tkSes").value, type: $("#tkDate").value===todayISO()?"Hôm nay":"Tuần này", done: $("#tkDone").checked };
   if (!rec.title) return toast("Nhập tiêu đề");
   if (editTarget) Object.assign(DB.tasks.find(t => t.id === editTarget), rec);
   else DB.tasks.push({ id: uid("t"), ...rec });
@@ -972,7 +1030,8 @@ function viewSchedule() {
           <option value="">Tất cả lớp</option>
           ${DB.classes.map(c=>`<option value="${c.id}" ${window._schCls===c.id?"selected":""}>${c.name}</option>`).join("")}
         </select>
-        <button class="btn btn-primary" onclick="openSchModal()">Tạo lịch học</button>
+        <button class="btn btn-primary" onclick="openSchModal()">Thêm một buổi</button>
+        <button class="btn btn-ghost" onclick="openWeekSchModal()">Phân lịch cả tuần</button>
       </div>
       <div class="assign-list">
         ${byDay.map(g => {
@@ -992,16 +1051,27 @@ function viewSchedule() {
     </div>`;
   $("#schClassFilter").onchange = () => { window._schCls = $("#schClassFilter").value; paint(); };
 }
+function subjectOptions(sel) {
+  return DB.subjects.map(m => `<option value="${m.name}" ${sel===m.name?"selected":""}>${m.name}</option>`).join("");
+}
+function sessionTimes(ses) {
+  return ses === "Chiều" ? { start: "13:00", end: "16:30" } : { start: "07:30", end: "11:00" };
+}
 function openSchModal(id) {
-  const s = id ? DB.schedule.find(x => x.id === id) : { day: "Thứ 2", start: "07:30", end: "09:15", subject: "", classId: DB.classes[0]?.id };
+  const s = id ? DB.schedule.find(x => x.id === id) : { day: "Thứ 2", start: "07:30", end: "11:00", subject: DB.subjects[0]?.name, classId: DB.classes[0]?.id };
   editTarget = id || null;
-  showModal(`<h3>${id?"Sửa":"Tạo"} lịch học</h3>
+  showModal(`<h3>${id?"Sửa":"Thêm"} buổi học</h3>
     <div class="form-grid">
       <div class="field"><label>Thứ</label><select id="scDay">${WEEKDAYS.map(d=>`<option ${s.day===d?"selected":""}>${d}</option>`).join("")}</select></div>
       <div class="field"><label>Lớp</label><select id="scCls">${DB.classes.map(c=>`<option value="${c.id}" ${s.classId===c.id?"selected":""}>${c.name}</option>`).join("")}</select></div>
+      <div class="field"><label>Môn học</label><select id="scSub">${subjectOptions(s.subject)}</select></div>
+      <div class="field"><label>Buổi</label>
+        <select id="scSes" onchange="const t=sessionTimes(this.value);document.getElementById('scStart').value=t.start;document.getElementById('scEnd').value=t.end;">
+          <option>Sáng</option><option>Chiều</option>
+        </select>
+      </div>
       <div class="field"><label>Bắt đầu</label><input id="scStart" value="${s.start||"07:30"}"></div>
-      <div class="field"><label>Kết thúc</label><input id="scEnd" value="${s.end||"09:15"}"></div>
-      <div class="field span-2"><label>Môn / nội dung</label><input id="scSub" value="${s.subject||""}"></div>
+      <div class="field"><label>Kết thúc</label><input id="scEnd" value="${s.end||"11:00"}"></div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-outline" onclick="hideModal()">Hủy</button>
@@ -1009,11 +1079,37 @@ function openSchModal(id) {
     </div>`);
 }
 function saveSch() {
-  const rec = { day: $("#scDay").value, classId: $("#scCls").value, start: $("#scStart").value, end: $("#scEnd").value, subject: $("#scSub").value.trim() };
-  if (!rec.subject) return toast("Nhập nội dung môn học");
+  const rec = { day: $("#scDay").value, classId: $("#scCls").value, start: $("#scStart").value, end: $("#scEnd").value, subject: $("#scSub").value };
+  if (!rec.subject) return toast("Chọn môn học");
   if (editTarget) Object.assign(DB.schedule.find(s => s.id === editTarget), rec);
   else DB.schedule.push({ id: uid("sch"), ...rec });
   save(DB); hideModal(); paint(); toast("Đã lưu lịch học");
+}
+function openWeekSchModal() {
+  showModal(`<h3>Phân lịch cả tuần</h3>
+    <p class="muted" style="margin-bottom:10px">Chọn lớp, môn và buổi — hệ thống tạo lịch cho các thứ đã đánh dấu.</p>
+    <div class="form-grid">
+      <div class="field"><label>Lớp</label><select id="wkCls">${DB.classes.map(c=>`<option value="${c.id}">${c.name}</option>`).join("")}</select></div>
+      <div class="field"><label>Môn học</label><select id="wkSub">${subjectOptions()}</select></div>
+      <div class="field span-2"><label>Buổi</label>
+        <select id="wkSes">${["Sáng","Chiều"].map(x=>`<option>${x}</option>`).join("")}</select>
+      </div>
+      <div class="field span-2"><label>Các ngày trong tuần</label>
+        <div class="check-list">${WEEKDAYS.map(d => `<label class="check-item"><input type="checkbox" class="wkDay" value="${d}" ${d!=="Chủ nhật"&&d!=="Thứ 7"?"checked":""}> ${d}</label>`).join("")}</div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="hideModal()">Hủy</button>
+      <button class="btn btn-primary" onclick="saveWeekSch()">Lưu cả tuần</button>
+    </div>`);
+}
+function saveWeekSch() {
+  const days = $$(".wkDay").filter(x => x.checked).map(x => x.value);
+  if (!days.length) return toast("Chọn ít nhất một thứ");
+  const subject = $("#wkSub").value, classId = $("#wkCls").value;
+  const { start, end } = sessionTimes($("#wkSes").value);
+  days.forEach(day => DB.schedule.push({ id: uid("sch"), day, classId, subject, start, end }));
+  save(DB); hideModal(); paint(); toast("Đã phân " + days.length + " buổi trong tuần");
 }
 function delSch(id) { DB.schedule = DB.schedule.filter(s => s.id !== id); save(DB); paint(); }
 
@@ -1206,7 +1302,7 @@ function viewLeave() {
           return `<div class="leave-item">
             <div>
               <b>${s?.name}</b> <span class="muted">${s?.mssv} · ${className(s?.classId)}</span>
-              <div class="muted">${fmtDate(l.from)} → ${fmtDate(l.to)} · ${l.reason}</div>
+              <div class="muted">${fmtDate(l.from)} (${weekdayOf(l.from)}) → ${fmtDate(l.to)} (${weekdayOf(l.to)}) · ${l.session||"Cả ngày"} · ${l.reason}</div>
               <div style="margin-top:6px"><span class="badge ${l.status==="Duyệt"?"ok":l.status==="Từ chối"?"bad":"warn"}">${l.status}</span>
                 ${countBySv[l.studentId] ? `<span class="muted"> · ${countBySv[l.studentId]} đơn trong kỳ</span>` : ""}
               </div>
@@ -1348,8 +1444,13 @@ function viewSvLeave() {
     <div class="grid g-2">
       <div class="card">
         <h3>Tạo đơn nghỉ phép</h3>
-        <div class="field"><label>Từ ngày</label><input type="date" id="lvFrom" value="${todayISO()}"></div>
-        <div class="field"><label>Đến ngày</label><input type="date" id="lvTo" value="${todayISO()}"></div>
+        <div class="field"><label>Từ ngày</label><input type="date" id="lvFrom" value="${todayISO()}" onchange="syncLeaveDays()"></div>
+        <p class="muted" id="lvFromWd">Thứ: ${weekdayOf(todayISO())}</p>
+        <div class="field"><label>Đến ngày</label><input type="date" id="lvTo" value="${todayISO()}" onchange="syncLeaveDays()"></div>
+        <p class="muted" id="lvToWd">Thứ: ${weekdayOf(todayISO())}</p>
+        <div class="field"><label>Buổi nghỉ</label>
+          <select id="lvSes"><option>Sáng</option><option>Chiều</option><option selected>Cả ngày</option></select>
+        </div>
         <div class="field"><label>Lý do</label><textarea id="lvReason" rows="3" placeholder="Nêu rõ lý do nghỉ"></textarea></div>
         <button class="btn btn-primary" onclick="submitLeave()">Gửi đơn</button>
       </div>
@@ -1360,8 +1461,8 @@ function viewSvLeave() {
             <div class="leave-item">
               <div>
                 <b>${fmtDate(l.from)} → ${fmtDate(l.to)}</b>
-                <div class="muted">${l.reason}</div>
-                <div class="muted">Gửi ${fmtDate(l.createdAt)}</div>
+                <div class="muted">${l.session || "Cả ngày"} · ${l.reason}</div>
+                <div class="muted">${weekdayOf(l.from)} → ${weekdayOf(l.to)} · Gửi ${fmtDate(l.createdAt)}</div>
               </div>
               <span class="badge ${l.status==="Duyệt"?"ok":l.status==="Từ chối"?"bad":"warn"}">${l.status}</span>
             </div>`).join("") : "<p class='empty'>Chưa có đơn nghỉ phép</p>"}
@@ -1377,6 +1478,8 @@ async function submitLeave() {
   const rec = {
     id: uid("lv"), studentId: SESSION.studentId,
     from: $("#lvFrom").value, to: $("#lvTo").value, reason,
+    session: $("#lvSes")?.value || "Cả ngày",
+    fromWeekday: weekdayOf($("#lvFrom").value), toWeekday: weekdayOf($("#lvTo").value),
     status: "Chờ duyệt", source: "Form", createdAt: new Date().toISOString()
   };
   DB.leaves.push(rec);
@@ -1384,6 +1487,11 @@ async function submitLeave() {
   toast("Đã gửi đơn — trạng thái: Chờ duyệt");
   await sendLeaveMail(rec, s);
   paint();
+}
+function syncLeaveDays() {
+  const a = $("#lvFrom")?.value, b = $("#lvTo")?.value;
+  if ($("#lvFromWd")) $("#lvFromWd").textContent = a ? ("Thứ: " + weekdayOf(a)) : "";
+  if ($("#lvToWd")) $("#lvToWd").textContent = b ? ("Thứ: " + weekdayOf(b)) : "";
 }
 
 /* ================= WEEKLY REPORT UI ================= */
@@ -1469,6 +1577,57 @@ function submitWeek() {
   save(DB); toast("Đã lưu báo cáo tuần"); paint();
 }
 
+function viewFaculties() {
+  $("#main").innerHTML = `
+    <div class="topbar"><h2>Quản lý khoa</h2>${topMeta()}</div>
+    <div class="card">
+      <div class="toolbar"><button class="btn btn-primary" onclick="openFacModal()">Tạo khoa</button></div>
+      <div class="assign-list">
+        ${(DB.faculties||[]).map(f => {
+          const n = DB.teachers.filter(t => t.facultyId === f.id).length;
+          return `<div class="assign-card">
+            <div class="head">
+              <div>
+                <b>${f.name}</b>
+                <div class="muted">${n} giáo viên · ${f.locked ? "Đã khóa" : "Đang mở"}</div>
+              </div>
+              <div>
+                <button class="btn btn-sm btn-ghost" onclick="openFacModal('${f.id}')">Sửa</button>
+                <button class="btn btn-sm ${f.locked?"btn-outline":"btn-danger"}" onclick="toggleFacLock('${f.id}')">${f.locked?"Mở khóa":"Khóa"}</button>
+              </div>
+            </div>
+          </div>`;
+        }).join("")}
+      </div>
+    </div>`;
+}
+function openFacModal(id) {
+  const f = id ? DB.faculties.find(x => x.id === id) : { name: "" };
+  editTarget = id || null;
+  showModal(`<h3>${id?"Sửa":"Tạo"} khoa</h3>
+    <div class="field"><label>Tên khoa</label><input id="facName" value="${f.name||""}"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="hideModal()">Hủy</button>
+      <button class="btn btn-primary" onclick="saveFac()">Lưu</button>
+    </div>`);
+}
+function saveFac() {
+  const name = $("#facName").value.trim();
+  if (!name) return toast("Nhập tên khoa");
+  if (editTarget) DB.faculties.find(f => f.id === editTarget).name = name;
+  else DB.faculties.push({ id: uid("k"), name, locked: false });
+  save(DB); hideModal(); paint(); toast("Đã lưu khoa");
+}
+function toggleFacLock(id) {
+  const f = DB.faculties.find(x => x.id === id);
+  if (!f.locked) {
+    const n = DB.teachers.filter(t => t.facultyId === id).length;
+    if (n) return toast("Không thể khóa khoa đang có giáo viên");
+    f.locked = true;
+  } else f.locked = false;
+  save(DB); paint();
+}
+
 function viewTeachers() {
   $("#main").innerHTML = `
     <div class="topbar"><h2>Quản lý giáo viên</h2>${topMeta()}</div>
@@ -1479,8 +1638,9 @@ function viewTeachers() {
           <div class="head">
             <div>
               <b>${t.name}</b>
-              <div class="muted">${t.title || ""} · ${t.position || ""} · ${t.faculty || ""}</div>
+              <div class="muted">${t.title || ""} · ${t.position || ""} · ${facultyName(t.facultyId)}</div>
               <div class="muted">Ngày sinh: ${fmtDate(t.dob)} · Tài khoản: ${t.username}</div>
+              <div style="margin-top:6px"><span class="badge ${t.active!==false?"ok":"warn"}">${t.active!==false?"Hoạt động":"Không hoạt động"}</span></div>
             </div>
             <div>
               <button class="btn btn-sm btn-ghost" onclick="openGvModal('${t.id}')">Sửa</button>
@@ -1493,7 +1653,7 @@ function viewTeachers() {
     </div>`;
 }
 function openGvModal(id) {
-  const t = id ? DB.teachers.find(x => x.id === id) : { name:"", dob:"", position:"Giảng viên", title:"Giáo viên chủ nhiệm", faculty:"", username:"", password:"123456" };
+  const t = id ? DB.teachers.find(x => x.id === id) : { name:"", dob:"", position:"Giảng viên", title:"Giáo viên chủ nhiệm", facultyId: DB.faculties[0]?.id, username:"", password:"123456", active: true };
   editTarget = id || null;
   showModal(`<h3>${id?"Sửa":"Thêm"} giáo viên</h3>
     <div class="form-grid">
@@ -1501,12 +1661,17 @@ function openGvModal(id) {
       <div class="field"><label>Vị trí</label><input id="gvPos" value="${t.position||""}"></div>
       <div class="field span-2"><label>Ngày sinh</label>${dateSelectHTML("gvDob", t.dob)}</div>
       <div class="field"><label>Chức vụ</label><input id="gvTitle" value="${t.title||""}"></div>
-      <div class="field"><label>Khoa</label><input id="gvFac" value="${t.faculty||""}"></div>
+      <div class="field"><label>Khoa</label>
+        <select id="gvFac">${(DB.faculties||[]).filter(f=>!f.locked || f.id===t.facultyId).map(f=>`<option value="${f.id}" ${t.facultyId===f.id?"selected":""}>${f.name}${f.locked?" (đã khóa)":""}</option>`).join("")}</select>
+      </div>
+      <div class="field"><label>Trạng thái</label>
+        <select id="gvActive"><option value="1" ${t.active!==false?"selected":""}>Hoạt động</option><option value="0" ${t.active===false?"selected":""}>Không hoạt động</option></select>
+      </div>
       <div class="field"><label>Tài khoản</label><input id="gvUser" value="${t.username||""}"></div>
       <div class="field"><label>Mật khẩu</label>
         <div class="pw-wrap">
           <input id="gvPass" type="password" value="${t.password||""}">
-          <button class="pw-toggle" type="button" onclick="togglePw('gvPass', this)">Hiện</button>
+          ${pwToggleBtn("gvPass")}
         </div>
       </div>
     </div>
@@ -1521,7 +1686,8 @@ function saveGv() {
     dob: readDateSelect("gvDob"),
     position: $("#gvPos").value.trim(),
     title: $("#gvTitle").value.trim(),
-    faculty: $("#gvFac").value.trim(),
+    facultyId: $("#gvFac").value,
+    active: $("#gvActive").value === "1",
     username: $("#gvUser").value.trim(),
     password: $("#gvPass").value || "123456"
   };
@@ -1549,19 +1715,19 @@ function viewPassword() {
       <div class="field"><label>Mật khẩu hiện tại</label>
         <div class="pw-wrap">
           <input id="pwOld" type="password">
-          <button class="pw-toggle" type="button" onclick="togglePw('pwOld', this)">Hiện</button>
+          ${pwToggleBtn("pwOld")}
         </div>
       </div>
       <div class="field"><label>Mật khẩu mới</label>
         <div class="pw-wrap">
           <input id="pwNew" type="password">
-          <button class="pw-toggle" type="button" onclick="togglePw('pwNew', this)">Hiện</button>
+          ${pwToggleBtn("pwNew")}
         </div>
       </div>
       <div class="field"><label>Nhập lại mật khẩu mới</label>
         <div class="pw-wrap">
           <input id="pwNew2" type="password">
-          <button class="pw-toggle" type="button" onclick="togglePw('pwNew2', this)">Hiện</button>
+          ${pwToggleBtn("pwNew2")}
         </div>
       </div>
       <button class="btn btn-primary" onclick="changePassword()">Cập nhật mật khẩu</button>
@@ -1594,6 +1760,8 @@ window.addEventListener("DOMContentLoaded", () => {
     b.classList.add("active");
   });
   $("#btnLogin").onclick = login;
+  const loginPwBtn = document.querySelector("#loginPass")?.parentElement?.querySelector(".pw-toggle");
+  if (loginPwBtn) loginPwBtn.innerHTML = ICO_DOTS;
   $("#loginPass").addEventListener("keydown", e => { if (e.key === "Enter") login(); });
   const saved = restoreSession();
   if (saved && saved.role) { SESSION = saved; enterApp(); }

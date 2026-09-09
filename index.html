@@ -13,7 +13,7 @@
     <div class="login-card">
       <div class="login-art">
         <div>
-          <div class="brand-mark">QLLH</div>
+          <img class="brand-logo" src="assets/logo.svg" alt="Logo hệ thống quản lý lớp học" />
           <h1>Hệ thống quản lý lớp học</h1>
           <p>Quản lý lớp chủ nhiệm, theo dõi sinh viên và hỗ trợ học tập trên một nền tảng thống nhất.</p>
         </div>
@@ -34,7 +34,7 @@
           <label>Mật khẩu</label>
           <div class="pw-wrap">
             <input id="loginPass" type="password" autocomplete="current-password" />
-            <button class="pw-toggle" type="button" onclick="togglePw('loginPass', this)">Hiện</button>
+            <button class="pw-toggle" type="button" onclick="togglePw('loginPass', this)" aria-label="Hiện mật khẩu"></button>
           </div>
         </div>
         <button class="btn btn-primary full" id="btnLogin" type="button">Đăng nhập</button>
@@ -45,7 +45,10 @@
   <div id="app" class="shell app-hidden">
     <div class="mobile-bar">
       <button class="icon-btn" id="btnMenu" type="button" aria-label="Menu">☰</button>
-      <b id="mobileTitle">Hệ thống quản lý lớp học</b>
+      <span style="display:flex;align-items:center;gap:8px">
+        <img class="logo-img" src="assets/logo.svg" alt="" width="28" height="28" style="width:28px;height:28px;border-radius:8px;background:#fff" />
+        <b id="mobileTitle">Hệ thống quản lý lớp học</b>
+      </span>
       <span style="width:36px"></span>
     </div>
     <div class="backdrop" id="backdrop"></div>
