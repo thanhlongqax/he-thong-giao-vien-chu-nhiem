@@ -1,0 +1,36 @@
+[
+  {
+    "mssv": "SV011",
+    "name": "Hoàng Hải Đăng",
+    "gender": "Nam",
+    "dob": "2005-06-15",
+    "class": "DHKT01",
+    "phone": "0912345011",
+    "father": "Hoàng Văn Bình",
+    "fatherPhone": "0902222001",
+    "mother": "Lưu Thị Hoa",
+    "motherPhone": "0902222002",
+    "addrThuongTru": "15 Lý Tự Trọng, Q1",
+    "addrCuTru": "KTX A",
+    "status": "Đang học",
+    "username": "sv011",
+    "password": "123456"
+  },
+  {
+    "mssv": "SV012",
+    "name": "Phan Ngọc Quỳnh",
+    "gender": "Nữ",
+    "dob": "2006-10-02",
+    "class": "CDCN02",
+    "phone": "0912345012",
+    "father": "Phan Văn Long",
+    "fatherPhone": "0902222003",
+    "mother": "Mai Thị Nhung",
+    "motherPhone": "0902222004",
+    "addrThuongTru": "88 Nguyễn Thái Học",
+    "addrCuTru": "KTX C",
+    "status": "Cần theo dõi",
+    "username": "sv012",
+    "password": "123456"
+  }
+]

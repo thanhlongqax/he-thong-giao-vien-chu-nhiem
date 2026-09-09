@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GVCN Hub · Quản lý lớp phân hệ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <section id="loginScreen" class="login-wrap">
+    <div class="login-card">
+      <div class="login-art">
+        <div>
+          <div class="brand-mark">🌿</div>
+          <h1>Hệ thống quản lý lớp phân hệ</h1>
+          <p>Dành cho giáo viên chủ nhiệm và học sinh. Theo dõi lớp, điểm danh, nghỉ phép, báo cáo tuần và ban cán sự trên một giao diện xanh – trắng hiện đại.</p>
+        </div>
+        <p>Năm học · Kỳ học · Tuần hiện tại luôn hiện ở góc phải màn hình làm việc.</p>
+      </div>
+      <div class="login-form">
+        <h2>Đăng nhập</h2>
+        <p class="sub">Chọn vai trò rồi dùng tài khoản demo bên dưới.</p>
+        <div class="role-pills">
+          <button class="active" data-role="gv" type="button">Giáo viên CN</button>
+          <button data-role="sv" type="button">Học sinh</button>
+        </div>
+        <div class="field">
+          <label>Tài khoản / MSSV</label>
+          <input id="loginUser" value="gv" autocomplete="username" />
+        </div>
+        <div class="field">
+          <label>Mật khẩu</label>
+          <input id="loginPass" type="password" value="123456" autocomplete="current-password" />
+        </div>
+        <button class="btn btn-primary full" id="btnLogin">Vào hệ thống</button>
+        <p class="hint">
+          GVCN: <b>gv</b> / <b>123456</b><br />
+          Học sinh: <b>sv001</b> … <b>sv010</b> / <b>123456</b>
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <div id="app" class="shell app-hidden">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main" id="main"></main>
+  </div>
+
+  <div class="overlay" id="overlay" onclick="if(event.target===this) hideModal()">
+    <div class="modal" id="modal"></div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
