@@ -1,0 +1,257 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  ADMIN
+  TEACHER
+  STUDENT
+}
+
+enum IssueStatus {
+  Pending
+  InProgress
+  Resolved
+}
+
+enum IssueSource {
+  weekly_report
+  teacher
+}
+
+enum LeaveStatus {
+  Pending
+  Approved
+  Rejected
+}
+
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  name         String
+  role         Role
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  teacher      Teacher?
+  student      Student?
+  audits       AuditLog[] @relation("Actor")
+}
+
+model Faculty {
+  id        String    @id @default(cuid())
+  name      String
+  locked    Boolean   @default(false)
+  teachers  Teacher[]
+}
+
+model Teacher {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  facultyId    String?
+  faculty      Faculty? @relation(fields: [facultyId], references: [id])
+  dob          DateTime?
+  position     String   @default("Giảng viên")
+  title        String   @default("Giáo viên chủ nhiệm")
+  gmail        String   @default("")
+  gmailNotify  Boolean  @default(false)
+  active       Boolean  @default(true)
+  homerooms    Class[]
+  assignments  AssignmentTeacher[]
+  tasks        Task[]
+}
+
+model Class {
+  id                 String   @id @default(cuid())
+  name               String
+  level              String
+  year               String
+  note               String   @default("")
+  homeroomTeacherId  String?
+  homeroomTeacher    Teacher? @relation(fields: [homeroomTeacherId], references: [id])
+  students           Student[]
+  schedules          Schedule[]
+  assignments        AssignmentClass[]
+}
+
+model Student {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mssv          String   @unique
+  classId       String
+  class         Class    @relation(fields: [classId], references: [id])
+  gender        String   @default("Nam")
+  dob           DateTime?
+  phone         String   @default("")
+  father        String   @default("")
+  fatherPhone   String   @default("")
+  mother        String   @default("")
+  motherPhone   String   @default("")
+  addrThuongTru String   @default("")
+  addrCuTru     String   @default("")
+  status        String   @default("Đang học")
+  officer       String   @default("Không")
+  enrollments   Enrollment[]
+  attendance    Attendance[]
+  leaves        LeaveRequest[]
+  reports       WeeklyReport[]
+  issues        Issue[]
+}
+
+model Enrollment {
+  id        String   @id @default(cuid())
+  studentId String
+  classId   String
+  year      String
+  term      String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  @@unique([studentId, year, term])
+}
+
+model Subject {
+  id           String   @id @default(cuid())
+  name         String
+  code         String   @unique
+  credit       Int      @default(2)
+  assignments  Assignment[]
+  schedules    Schedule[]
+}
+
+model Assignment {
+  id        String   @id @default(cuid())
+  subjectId String
+  subject   Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  year      String
+  term      String
+  classes   AssignmentClass[]
+  teachers  AssignmentTeacher[]
+}
+
+model AssignmentClass {
+  assignmentId String
+  classId      String
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  class        Class      @relation(fields: [classId], references: [id], onDelete: Cascade)
+  @@id([assignmentId, classId])
+}
+
+model AssignmentTeacher {
+  assignmentId String
+  teacherId    String
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  teacher      Teacher    @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  @@id([assignmentId, teacherId])
+}
+
+model Schedule {
+  id         String   @id @default(cuid())
+  day        String
+  start      String
+  end        String
+  subjectId  String
+  classId    String
+  subject    Subject  @relation(fields: [subjectId], references: [id])
+  class      Class    @relation(fields: [classId], references: [id])
+  attendance Attendance[]
+}
+
+model Attendance {
+  id         String   @id @default(cuid())
+  studentId  String
+  scheduleId String
+  subjectId  String
+  date       DateTime @db.Date
+  status     String
+  note       String   @default("")
+  year       String
+  term       String
+  week       Int
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  schedule   Schedule @relation(fields: [scheduleId], references: [id])
+  @@unique([studentId, scheduleId, date])
+}
+
+model LeaveRequest {
+  id        String      @id @default(cuid())
+  studentId String
+  fromDate  DateTime    @db.Date
+  toDate    DateTime    @db.Date
+  session   String      @default("Cả ngày")
+  reason    String
+  status    LeaveStatus @default(Pending)
+  source    String      @default("Form")
+  createdAt DateTime    @default(now())
+  student   Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model WeeklyReport {
+  id        String   @id @default(cuid())
+  studentId String
+  week      Int
+  year      String
+  term      String
+  answers   Json
+  createdAt DateTime @default(now())
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  @@unique([studentId, week, year, term])
+}
+
+model Issue {
+  id        String      @id @default(cuid())
+  studentId String
+  type      String
+  text      String
+  week      Int
+  year      String
+  term      String
+  source    IssueSource @default(teacher)
+  status    IssueStatus @default(Pending)
+  reported  Boolean     @default(false)
+  reportId  String?
+  date      DateTime    @db.Date
+  updatedAt DateTime    @updatedAt
+  student   Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model Task {
+  id        String   @id @default(cuid())
+  teacherId String?
+  teacher   Teacher? @relation(fields: [teacherId], references: [id])
+  title     String
+  date      DateTime @db.Date
+  time      String   @default("")
+  session   String   @default("Sáng")
+  type      String   @default("Hôm nay")
+  done      Boolean  @default(false)
+}
+
+model AcademicConfig {
+  id           String @id @default("current")
+  year         String
+  term         String
+  week         Int
+  yearStart    DateTime @db.Date
+  weeksPerTerm Int      @default(22)
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  actor     User?    @relation("Actor", fields: [actorId], references: [id])
+  actorRole String
+  actorName String
+  action    String
+  entity    String
+  entityId  String   @default("")
+  detail    String   @default("")
+  timestamp DateTime @default(now())
+}

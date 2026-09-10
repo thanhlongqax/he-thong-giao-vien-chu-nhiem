@@ -1,6 +1,36 @@
-# GVCN Hub — Hệ thống quản lý lớp phân hệ
+# Hệ thống quản lý lớp học (GVCN)
 
-Giao diện web tĩnh (HTML / CSS / JS), lưu dữ liệu trên trình duyệt. **Không dùng Python.** Deploy trên **Vercel**.
+## Production (Phase 10) — Next.js + PostgreSQL
+
+App Router, Prisma, Vercel Postgres / Supabase **pooler**, NextAuth cookie **HttpOnly**, mật khẩu **bcrypt**. Không dùng SQLite hay localStorage làm DB.
+
+### Biến môi trường Vercel
+
+| Biến | Ý nghĩa |
+| --- | --- |
+| `DATABASE_URL` | URL **pooled** (`pgbouncer=true&connection_limit=1`, port 6543 trên Supabase pooler) |
+| `DIRECT_URL` | URL trực tiếp cho `prisma migrate` (port 5432 / `POSTGRES_URL_NON_POOLING`) |
+| `NEXTAUTH_URL` | `https://your-app.vercel.app` |
+| `NEXTAUTH_SECRET` | `openssl rand -base64 32` |
+| `SMTP_*` | Tùy chọn mail đơn phép |
+
+```bash
+cp .env.example .env
+npm install
+npx prisma migrate dev --name init
+npm run db:seed
+npm run dev
+```
+
+Tài khoản seed (mật khẩu `123456`): `admin` · `gv` · `sv001`.
+
+Build Vercel: `prisma generate && next build` (script `build` trong `package.json`).
+
+---
+
+## Prototype tĩnh (Phase 1–9)
+
+Giao diện web tĩnh (HTML / CSS / JS), dữ liệu trình duyệt — chỉ còn tài liệu UX.
 
 Phiên bản giao diện chuyên nghiệp, responsive điện thoại và laptop. Nút đăng nhập ghi **Đăng nhập**. Phân môn cho nhiều lớp. Báo cáo theo ngày / tuần / tháng / quý / năm. Gửi Gmail khi sinh viên tạo đơn nghỉ phép. Hồ sơ SV, mã QR đơn phép, danh sách đơn kèm trạng thái, form báo cáo tuần.
 
