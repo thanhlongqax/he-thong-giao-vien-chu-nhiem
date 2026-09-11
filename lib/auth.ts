@@ -57,18 +57,18 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.role = (user as { role: string }).role;
-        token.teacherId = (user as { teacherId?: string | null }).teacherId ?? null;
-        token.studentId = (user as { studentId?: string | null }).studentId ?? null;
+        token.role = user.role;
+        token.teacherId = user.teacherId ?? null;
+        token.studentId = user.studentId ?? null;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.sub || "";
-        session.user.role = (token.role as string) || "";
-        session.user.teacherId = (token.teacherId as string | null) ?? null;
-        session.user.studentId = (token.studentId as string | null) ?? null;
+        session.user.role = token.role || "";
+        session.user.teacherId = token.teacherId ?? null;
+        session.user.studentId = token.studentId ?? null;
       }
       return session;
     }
