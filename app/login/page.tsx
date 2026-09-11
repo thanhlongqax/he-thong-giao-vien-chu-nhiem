@@ -2,11 +2,11 @@
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import PasswordField from "@/app/components/PasswordField";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [show, setShow] = useState(false);
   const [err, setErr] = useState("");
   const router = useRouter();
 
@@ -38,15 +38,11 @@ export default function LoginPage() {
           </div>
           <div className="field">
             <label>Mật khẩu</label>
-            <div className="pw-wrap">
-              <input
-                type={show ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
-              />
-              <button className="pw-toggle" type="button" onClick={() => setShow((v) => !v)} aria-label="Hiện mật khẩu" />
-            </div>
+            <PasswordField
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+            />
           </div>
           <button className="btn btn-primary full" type="submit">Đăng nhập</button>
         </form>

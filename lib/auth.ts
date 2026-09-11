@@ -3,6 +3,38 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 
+function isBcryptHash(value: string) {
+  return /^\$2[aby]\$\d{2}\$/.test(value);
+}
+
+async function passwordMatches(plain: string, stored: string) {
+  if (!stored) return false;
+  if (isBcryptHash(stored)) {
+    try {
+      return await bcrypt.compare(plain, stored);
+    } catch {
+      return false;
+    }
+  }
+  return stored === plain;
+}
+
+async function findLoginUser(raw: string) {
+  const username = raw.trim();
+  const lower = username.toLowerCase();
+  const mssv = username.toUpperCase();
+  return prisma.user.findFirst({
+    where: {
+      OR: [
+        { username: lower },
+        { username },
+        { student: { is: { mssv } } }
+      ]
+    },
+    include: { teacher: true, student: true }
+  });
+}
+
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt", maxAge: 60 * 60 * 8 },
   cookies: {
@@ -30,17 +62,9 @@ export const authOptions: NextAuthOptions = {
         const username = credentials?.username?.trim();
         const password = credentials?.password || "";
         if (!username || !password) return null;
-        const user = await prisma.user.findFirst({
-          where: {
-            OR: [
-              { username: { equals: username, mode: "insensitive" } },
-              { student: { mssv: username.toUpperCase() } }
-            ]
-          },
-          include: { teacher: true, student: true }
-        });
+        const user = await findLoginUser(username);
         if (!user || !user.active) return null;
-        const ok = await bcrypt.compare(password, user.passwordHash);
+        const ok = await passwordMatches(password, user.passwordHash);
         if (!ok) return null;
         if (user.role === "TEACHER" && user.teacher && !user.teacher.active) return null;
         return {
