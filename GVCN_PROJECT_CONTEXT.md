@@ -1,5 +1,6 @@
 # CONTEXT CHUNG — HỆ THỐNG QUẢN TRỊ LỚP HỌC / GIÁO VIÊN CHỦ NHIỆM
 
+> **Phiên bản context:** 2.0 — sau Phase 1–10 (2026-09-10)  
 > **Mục đích:** Đây là context chung của dự án dành cho AI coding agent (Grok Build).  
 > AI phải đọc file này trước khi phân tích hoặc thay đổi code.
 >
@@ -58,8 +59,9 @@ Khi người dùng yêu cầu một task:
 
 Mọi thay đổi phải đảm bảo:
 
-- Không mất dữ liệu localStorage hiện tại.
-- Không phá login.
+- Không mất dữ liệu production PostgreSQL hiện tại.
+- Không mất dữ liệu prototype localStorage nếu vẫn đang dùng bản tĩnh.
+- Không phá login / session cookie.
 - Không phá CRUD hiện có.
 - Không phá export.
 - Không phá dashboard.
@@ -86,7 +88,7 @@ Luôn ưu tiên:
 ```text
 schema cũ
    ↓
-migration
+migration (Prisma migrate / tương thích dữ liệu)
    ↓
 schema mới
    ↓
@@ -100,47 +102,126 @@ xóa dữ liệu cũ
 → seed lại dữ liệu
 ```
 
+Production dùng `prisma migrate`. Prototype tĩnh dùng `migrate()` trong `js/migration.js`. Không reset DB để "cho nhanh".
+
 ---
 
 # 3. KIẾN TRÚC HIỆN TẠI
 
-Hệ thống hiện tại là:
+Hệ thống **production** hiện tại là:
 
-**SPA tĩnh — Vanilla JavaScript — không backend.**
+**Next.js App Router — Vercel Serverless — PostgreSQL (Vercel Postgres / Supabase) — Prisma ORM — NextAuth cookie HttpOnly.**
+
+Prototype Vanilla JS / localStorage **vẫn giữ** như tài liệu UX / seed nghiệp vụ. Không coi localStorage là nguồn sự thật production.
+
+## 3.1. Production
 
 Cấu trúc:
 
 ```text
-index.html
-css/
-  styles.css
-js/
-  app.js
-assets/
-  logo
-  ảnh login
-  JSON mẫu
+app/
+  layout.tsx
+  login/page.tsx
+  (shell)/
+    dash/
+    classes/
+    students/
+    attendance/
+    leaves/
+    reports/
+    tasks/
+    admin/
+    portal/
+  api/
+    auth/[...nextauth]/
+    students/
+    leaves/
+    attendance/
+    reports/
+    issues/
+    config/
+lib/
+  prisma.ts
+  auth.ts
+  rbac.ts
+  audit.ts
+prisma/
+  schema.prisma
+  seed.ts
+middleware.ts
+public/
+.env.example
 package.json
 vercel.json
 README.md
 ```
 
-Hiện tại phần lớn nghiệp vụ nằm trong:
+Luồng hoạt động production:
 
 ```text
-js/app.js
+Browser
+   ↓
+Next.js App Router (Vercel)
+   ↓
+middleware.ts  (JWT cookie HttpOnly)
+   ↓
+Server Component / API Route / Server Action
+   ↓
+lib/rbac.ts  (role + homeroom scope + assigns)
+   ↓
+Prisma Client
+   ↓
+PostgreSQL pooled connection
+   DATABASE_URL  = pooler (PgBouncer / Supabase :6543)
+   DIRECT_URL    = direct  (migrate / :5432)
 ```
 
-Khoảng gần 2.000 dòng.
+Auth:
 
-Luồng hoạt động:
+```text
+POST credentials
+   ↓
+bcrypt.compare(passwordHash)
+   ↓
+NextAuth JWT
+   ↓
+Cookie HttpOnly + SameSite=Lax + Secure (production)
+   ↓
+session.user = { id, role, teacherId, studentId }
+```
+
+Không dùng:
+
+- SQLite
+- File JSON trên disk làm database
+- localStorage làm production DB
+- mật khẩu plaintext trên production
+
+## 3.2. Prototype tĩnh (tài liệu UX)
+
+Vẫn tồn tại song song:
+
+```text
+index.html
+css/styles.css
+js/
+  app.js
+  db.js
+  auth.js
+  migration.js
+  utils.js
+  views/
+assets/
+```
+
+Luồng prototype:
 
 ```text
 Browser
    ↓
 index.html
    ↓
-app.js
+script tuần tự (không type=module)
    ↓
 load()
    ↓
@@ -150,34 +231,53 @@ migrate()
    ↓
 seed() nếu chưa có dữ liệu
    ↓
-login/session
+login/session (SESS_KEY gvcn_session_v3)
    ↓
-renderShell()
-   ↓
-paint()
-   ↓
-viewXxx()
-   ↓
-CRUD
+renderShell() → paint() → viewXxx()
    ↓
 save(DB)
 ```
 
-Mỗi trình duyệt hiện tại có một bộ dữ liệu riêng.
+Mỗi trình duyệt prototype có một bộ dữ liệu riêng. Chỉ dùng để demo / đối chiếu UX.
 
-Không có:
+## 3.3. Deploy
 
-- API server
-- Database server
-- Server-side authentication
-- Server-side authorization
-- Shared database
+```text
+Vercel (framework: nextjs)
+   ↓
+build: prisma generate && next build
+   ↓
+runtime Node serverless
+   ↓
+Postgres + connection pooling
+```
+
+Biến môi trường bắt buộc:
+
+```text
+DATABASE_URL
+DIRECT_URL
+NEXTAUTH_URL
+NEXTAUTH_SECRET
+```
+
+Tùy chọn: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`.
 
 ---
 
 # 4. CÁC VAI TRÒ
 
-Hiện có 3 vai trò:
+Hiện có 3 vai trò.
+
+Production (Prisma enum `Role`):
+
+```text
+TEACHER = Giáo viên / GVCN
+STUDENT = Sinh viên
+ADMIN   = Quản trị
+```
+
+Prototype tĩnh vẫn dùng mã ngắn:
 
 ```text
 gv = Giáo viên / GVCN
@@ -187,22 +287,35 @@ ad = Quản trị
 
 ## 4.1. Giáo viên / GVCN
 
-Session hiện tại có thông tin kiểu:
+Session production:
 
 ```text
-teacherId
-username
+id          = User.id
+role        = TEACHER
+teacherId   = Teacher.id
+name
 ```
 
 ### QUY TẮC NGHIỆP VỤ QUAN TRỌNG
 
-Sau khi hoàn thiện phạm vi GVCN:
-
 > Giáo viên chỉ được xem và thao tác trên dữ liệu thuộc lớp mình chủ nhiệm, trừ những chức năng được đặc tả rõ là dành cho giáo viên bộ môn.
 
-Không được tiếp tục để mọi giáo viên mặc định nhìn thấy toàn bộ lớp.
+Không được để mọi giáo viên mặc định nhìn thấy toàn bộ lớp.
 
----
+Điều kiện chủ nhiệm:
+
+```text
+Class.homeroomTeacherId === session.teacherId
+```
+
+Điều kiện giáo viên bộ môn (điểm danh tiết):
+
+```text
+Assignment.year + term hiện tại
+AssignmentClass.classId
+AssignmentTeacher.teacherId === session.teacherId
+Assignment.subjectId === tiết.subjectId
+```
 
 ## 4.2. Sinh viên
 
@@ -213,7 +326,7 @@ Sinh viên chỉ được xem/thao tác dữ liệu thuộc chính mình:
 - Báo cáo tuần
 - Đổi mật khẩu
 
----
+`session.studentId === Student.id`.
 
 ## 4.3. Admin
 
@@ -221,11 +334,12 @@ Admin có quyền quản trị toàn hệ thống:
 
 - Khoa
 - Giáo viên
-- Lớp
+- Lớp / gán GVCN
 - Sinh viên
-- Năm học / kỳ / tuần
+- Năm học / kỳ / tuần (`AcademicConfig`)
 - Cấu hình
-- Phân công
+- Phân công môn
+- Nhật ký (`AuditLog`)
 - Dữ liệu toàn trường
 
 ---
@@ -234,434 +348,398 @@ Admin có quyền quản trị toàn hệ thống:
 
 ## Nền tảng
 
-- Seed
-- Migration
-- Load/save
-- Session
-- Toast
-- Modal
-- Validation
-- Ngày tháng tiếng Việt
+- Prisma schema + migrate
+- Seed từ cấu trúc JSON v3 (`prisma/seed.ts`)
+- NextAuth + bcrypt
+- Middleware RBAC
+- `lib/rbac.ts` (homeroom + bộ môn)
+- `lib/audit.ts`
+- Toast / Modal / Empty state (prototype + một phần Next UI)
+- Validation SĐT
+- Academic year / term / week thống nhất
 
 ## Giáo viên
 
-- Dashboard
-- Lớp
-- Sinh viên
-- Import Excel/JSON
+- Dashboard câu hỏi nghiệp vụ (ai nghỉ, ai cần quan tâm, việc chưa làm)
+- Lớp chủ nhiệm
+- Sinh viên (CRUD + import 5 bước trên prototype)
 - Cấp lại mật khẩu
-- Môn học
-- Phân công lớp/GV
-- Điểm danh
+- Môn học / phân công nhiều lớp + giáo viên
+- Điểm danh theo tiết (`scheduleId`)
 - Công việc
-- Lịch tháng
 - Lịch học tuần
-- Nghỉ phép
+- Nghỉ phép (duyệt / từ chối)
 - Báo cáo tổng hợp
-- Export file
-- Báo cáo tuần
-- Reset báo cáo tuần
-- Cấu hình Gmail cá nhân
+- Export file (prototype Excel/PDF)
+- Báo cáo tuần + reset
+- Cấu hình Gmail cá nhân của giảng viên
 
 ## Sinh viên
 
 - Hồ sơ
-- Đơn phép
-- Timeline đơn phép
-- Báo cáo tuần 3 bước
+- Đơn phép + trạng thái
+- Báo cáo tuần (1 lần / tuần / năm / kỳ)
 - Đổi mật khẩu
 
 ## Admin
 
-- Khoa
+- Khoa (khóa khi còn giáo viên)
 - Giáo viên
 - Cấu hình năm/kỳ/tuần
-- Quản lý giáo viên
-- Quản lý khoa
+- Nhật ký hệ thống
+- Gán GVCN cho lớp
 
 ---
 
 # 6. SCHEMA HIỆN TẠI
 
-Database hiện tại là một JSON object trong localStorage.
+## 6.A. Production — PostgreSQL / Prisma
 
-Key chính:
+Nguồn sự thật: `prisma/schema.prisma`.
+
+Datasource:
+
+```prisma
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")   // pooled
+  directUrl = env("DIRECT_URL")     // migrate
+}
+```
+
+Enum:
+
+```text
+Role          ADMIN | TEACHER | STUDENT
+IssueStatus   Pending | InProgress | Resolved
+IssueSource   weekly_report | teacher
+LeaveStatus   Pending | Approved | Rejected
+```
+
+Ghi chú: Prisma không dùng khoảng trắng trong enum. API chấp nhận cả `"In Progress"` rồi map sang `InProgress`. UI có thể hiện "Chờ xử lý / Đang xử lý / Đã xử lý" và "Chờ duyệt / Duyệt / Từ chối".
+
+### 6.1. User
+
+Thay `admin` + `teachers.username/password` + `students.username/password`.
+
+```text
+User
+  id
+  username          unique
+  passwordHash      bcrypt
+  name
+  role              Role
+  active
+  createdAt
+  updatedAt
+```
+
+Không lưu mật khẩu plaintext trên production.
+
+### 6.2. AcademicConfig
+
+Thay `config` JSON.
+
+```text
+AcademicConfig
+  id            = "current"
+  year          ví dụ "2025-2026"
+  term          ví dụ "Học kỳ 1"
+  week          1..weeksPerTerm
+  yearStart     date
+  weeksPerTerm  mặc định 22
+```
+
+Không còn `config.gmail` trên admin. Gmail nằm ở `Teacher.gmail`.
+
+### 6.3. Faculty
+
+```text
+Faculty
+  id
+  name
+  locked
+```
+
+Không khóa khoa nếu còn giáo viên thuộc khoa.
+
+### 6.4. Teacher
+
+```text
+Teacher
+  id
+  userId              unique → User.id
+  facultyId           → Faculty.id
+  dob
+  position
+  title
+  gmail
+  gmailNotify
+  active
+```
+
+Object `teacher` legacy của prototype đã được dọn ở Phase 2; production không có bảng `teacher` đơn.
+
+### 6.5. Class
+
+```text
+Class
+  id
+  name
+  level               daihoc | caodang | trungcap
+  year
+  note
+  homeroomTeacherId   → Teacher.id | null
+```
+
+`homeroomTeacherId` là quan hệ cốt lõi GVCN.
+
+### 6.6. Student
+
+```text
+Student
+  id
+  userId              unique → User.id
+  mssv                unique
+  classId             → Class.id
+  gender
+  dob
+  phone
+  father
+  fatherPhone
+  mother
+  motherPhone
+  addrThuongTru
+  addrCuTru
+  status
+  officer
+```
+
+Họ tên / username / passwordHash nằm ở `User`, không nhân đôi trên `Student`.
+
+### 6.7. Enrollment
+
+```text
+Enrollment
+  id
+  studentId
+  classId
+  year
+  term
+  @@unique([studentId, year, term])
+```
+
+### 6.8. Subject
+
+```text
+Subject
+  id
+  name
+  code                unique
+  credit
+```
+
+### 6.9. Assignment (phân môn)
+
+Thay `assigns[]` JSON. Quan hệ nhiều-nhiều qua bảng nối.
+
+```text
+Assignment
+  id
+  subjectId
+  year
+  term
+
+AssignmentClass
+  assignmentId
+  classId
+
+AssignmentTeacher
+  assignmentId
+  teacherId
+```
+
+### 6.10. Schedule
+
+```text
+Schedule
+  id
+  day                 Thứ 2 … Chủ nhật
+  start
+  end
+  subjectId           → Subject.id   (không còn string tên môn)
+  classId             → Class.id
+```
+
+### 6.11. Attendance
+
+```text
+Attendance
+  id
+  studentId
+  scheduleId          bắt buộc — gắn tiết lịch
+  subjectId
+  date
+  status              Có mặt | Trễ | Vắng
+  note
+  year
+  term
+  week
+  @@unique([studentId, scheduleId, date])
+```
+
+### 6.12. LeaveRequest
+
+Thay `leaves[]`.
+
+```text
+LeaveRequest
+  id
+  studentId
+  fromDate
+  toDate
+  session             Sáng | Chiều | Cả ngày
+  reason
+  status              Pending | Approved | Rejected
+  source
+  createdAt
+```
+
+### 6.13. WeeklyReport
+
+Thay `reports[]`.
+
+```text
+WeeklyReport
+  id
+  studentId
+  week
+  year
+  term
+  answers             Json
+  createdAt
+  @@unique([studentId, week, year, term])
+```
+
+Mỗi sinh viên chỉ nộp 1 báo cáo / tuần / năm / kỳ.
+
+### 6.14. Issue
+
+```text
+Issue
+  id
+  studentId
+  type                Nghiêm trọng | Cần hỗ trợ
+  text
+  week
+  year
+  term
+  source              weekly_report | teacher
+  status              Pending | InProgress | Resolved
+  reported
+  reportId
+  date
+  updatedAt
+```
+
+Lifecycle: Pending → In Progress → Resolved. GVCN cập nhật tiến độ và đóng issue.
+
+### 6.15. Task
+
+```text
+Task
+  id
+  teacherId
+  title
+  date
+  time
+  session
+  type
+  done
+```
+
+### 6.16. AuditLog
+
+```text
+AuditLog
+  id
+  actorId             → User.id
+  actorRole
+  actorName
+  action
+  entity
+  entityId
+  detail
+  timestamp
+```
+
+Hành vi bắt buộc ghi:
+
+- approve_leave / reject_leave
+- reset_week_report
+- create_student / update_student / delete_student
+- import_students
+- delete_class
+- save_attendance
+- update_issue
+- submit_week_report
+
+Không ghi mật khẩu trong `detail`.
+
+## 6.B. Prototype tĩnh — JSON localStorage (di sản, chỉ UX)
+
+Key:
 
 ```text
 gvcn_system_v3
 ```
 
-Các collection chính:
+Session key:
 
 ```text
-config
-admin
-faculties[]
-teachers[]
-teacher
-classes[]
-students[]
-subjects[]
-assigns[]
-attendance[]
+gvcn_session_v3
+```
+
+Collection prototype (đã migrate Phase 1–7):
+
+```text
+config          year, term, week, yearStart, weeksPerTerm
+admin           name, username, password          (plaintext — chỉ prototype)
+faculties[]     id, name, locked
+teachers[]      id, name, dob, position, title, facultyId, username, password, active, gmail, gmailNotify
+classes[]       id, name, level, year, note, homeroomTeacherId
+students[]      mssv, name, …, username, password, officer
+subjects[]      id, name, code, credit
+assigns[]       subjectId, classIds[], teacherIds[], year, term
+attendance[]    studentId, subjectId, scheduleId, date, status, note
 leaves[]
 reports[]
 tasks[]
-schedule[]
-issues[]
+schedule[]      day, start, end, subjectId, classId
+issues[]        status, source, year, term, reportId
 mailLog[]
+auditLog[]
 ```
 
----
+Đã loại bỏ (Phase 2, prototype):
 
-## 6.1. config
+- object `teacher` legacy
+- `config.gmail`
+- `schedule.subject` string (đã đổi `subjectId`)
 
-Hiện có dạng gần như:
-
-```js
-{
-  year,
-  term,
-  week,
-  gmailNotify?,
-  gmail?
-}
-```
-
-`config.gmail` là field di sản nếu Gmail đã chuyển sang cấu hình riêng của giáo viên.
-
-Không xóa ngay nếu chưa kiểm tra migration và nơi sử dụng.
-
----
-
-## 6.2. admin
-
-```js
-{
-  name,
-  username,
-  password
-}
-```
-
----
-
-## 6.3. faculties
-
-```js
-{
-  id,
-  name,
-  locked
-}
-```
-
----
-
-## 6.4. teachers
-
-```js
-{
-  id,
-  name,
-  dob,
-  position,
-  title,
-  facultyId,
-  username,
-  password,
-  active,
-  gmail,
-  gmailNotify
-}
-```
-
----
-
-## 6.5. teacher — LEGACY
-
-Hiện vẫn có object cũ:
-
-```js
-{
-  name,
-  username,
-  password
-}
-```
-
-Đây là schema di sản.
-
-Trước khi xóa:
-
-1. Tìm toàn bộ nơi sử dụng.
-2. Đảm bảo không còn dependency.
-3. Viết migration nếu cần.
-4. Chỉ sau đó mới loại bỏ.
-
----
-
-## 6.6. classes
-
-Hiện tại:
-
-```js
-{
-  id,
-  name,
-  level,
-  year,
-  note
-}
-```
-
-### SCHEMA MỤC TIÊU
-
-Cần bổ sung:
-
-```js
-{
-  id,
-  name,
-  level,
-  year,
-  note,
-  homeroomTeacherId
-}
-```
-
-Trong đó:
-
-```text
-homeroomTeacherId = teachers.id
-```
-
-Đây là quan hệ rất quan trọng của hệ thống GVCN.
-
----
-
-## 6.7. students
-
-```js
-{
-  id,
-  mssv,
-  name,
-  gender,
-  dob,
-  classId,
-  phone,
-
-  father,
-  fatherPhone,
-
-  mother,
-  motherPhone,
-
-  addrThuongTru,
-  addrCuTru,
-
-  status,
-
-  username,
-  password,
-
-  officer
-}
-```
-
-Quan hệ:
-
-```text
-Student.classId → Class.id
-```
-
----
-
-## 6.8. subjects
-
-```js
-{
-  id,
-  name,
-  code,
-  credit
-}
-```
-
----
-
-## 6.9. assigns
-
-```js
-{
-  id,
-  subjectId,
-  classIds[],
-  teacherIds[],
-  year,
-  term
-}
-```
-
-Lưu ý:
-
-`teacherIds` có thể chưa tồn tại trong seed cũ.
-
----
-
-## 6.10. attendance
-
-```js
-{
-  id,
-  studentId,
-  subjectId,
-  date,
-  status,
-  note
-}
-```
-
-Hiện tại chưa gắn trực tiếp:
-
-```text
-scheduleId
-```
-
-Đây là vấn đề cần xử lý sau, không tự ý sửa trong task khác.
-
----
-
-## 6.11. leaves
-
-```js
-{
-  id,
-  studentId,
-  from,
-  to,
-  session?,
-  reason,
-  status,
-  source,
-  createdAt
-}
-```
-
----
-
-## 6.12. reports
-
-```js
-{
-  id,
-  studentId,
-  week,
-  year,
-  term,
-  answers,
-  createdAt
-}
-```
-
----
-
-## 6.13. tasks
-
-```js
-{
-  id,
-  title,
-  date,
-  time?,
-  session?,
-  type,
-  done
-}
-```
-
----
-
-## 6.14. schedule
-
-Hiện tại:
-
-```js
-{
-  id,
-  day,
-  start,
-  end,
-  subject,
-  classId
-}
-```
-
-### Vấn đề
-
-`subject` đang là tên môn dạng string.
-
-Schema mục tiêu nên hướng tới:
-
-```js
-subjectId
-```
-
-Không sửa nếu task hiện tại không yêu cầu.
-
----
-
-## 6.15. issues
-
-```js
-{
-  id,
-  studentId,
-  type,
-  text,
-  week,
-  reported,
-  date
-}
-```
-
-Hiện chưa có lifecycle rõ ràng giữa:
-
-```text
-nhập tay
-vs
-sinh từ báo cáo tuần
-```
-
-Cần chuẩn hóa sau.
-
----
-
-## 6.16. mailLog
-
-```js
-{
-  id,
-  at,
-  to,
-  subject,
-  ok,
-  note
-}
-```
+Không coi JSON này là production database.
 
 ---
 
 # 7. QUAN HỆ DOMAIN
 
-Quan hệ chính:
-
 ```text
+User
+ ├── Teacher
+ └── Student
+
 Faculty
    ↓
-Teacher
-
 Teacher
    ↓
 Class.homeroomTeacherId
@@ -669,47 +747,70 @@ Class.homeroomTeacherId
 Class
    ↓
 Student
-```
+   ↓
+Enrollment (year, term)
 
-Ngoài ra:
-
-```text
 Subject
    ↓
-Assign
+Assignment (year, term)
+   ├── AssignmentClass → Class
+   └── AssignmentTeacher → Teacher
+
+Schedule (subjectId + classId + day + giờ)
    ↓
-Class + Teacher
-```
+Attendance (studentId + scheduleId + date)
 
-Và:
-
-```text
 Student
  ├── Attendance
- ├── Leave
+ ├── LeaveRequest
  ├── WeeklyReport
  └── Issue
+      source = weekly_report | teacher
+      status = Pending | InProgress | Resolved
+
+Teacher
+ └── Task
+
+User
+ └── AuditLog
+```
+
+Luồng điểm danh:
+
+```text
+Ngày học
+  ↓
+Thứ trong tuần
+  ↓
+Schedule của lớp
+  ↓
+Quyền:
+  GVCN        → mọi tiết lớp chủ nhiệm
+  GV bộ môn   → tiết assigns.teacherIds + classIds + subjectId + năm/kỳ
+  Admin       → tất cả
+  ↓
+Attendance.scheduleId
+```
+
+Luồng issue:
+
+```text
+Sinh viên nộp WeeklyReport
+       ↓
+detect (nghỉ > 2, trễ > 2, hỗ trợ, khó khăn, trao đổi riêng, bài chưa xong)
+       ↓
+Issue source=weekly_report status=Pending
+       ↓
+GVCN cập nhật InProgress / Resolved
 ```
 
 ---
 
-# 8. LỖI NGHIỆP VỤ QUAN TRỌNG NHẤT
+# 8. LỖI NGHIỆP VỤ ĐÃ XỬ LÝ VÀ CÒN MỞ
 
-## Lỗi 1 — Giáo viên thấy toàn bộ lớp
+## Đã xử lý (Phase 1 + 4 + 10)
 
-Hiện tại:
-
-```text
-GV đăng nhập
-   ↓
-có thể xem toàn bộ classes
-   ↓
-có thể xem toàn bộ students
-```
-
-Điều này không phù hợp với hệ thống GVCN.
-
-### Mục tiêu:
+Giáo viên không còn mặc định thấy toàn trường.
 
 ```text
 GV
@@ -718,12 +819,24 @@ teacherId
  ↓
 classes.homeroomTeacherId
  ↓
-chỉ các lớp mình chủ nhiệm
+chỉ lớp chủ nhiệm
  ↓
 students.classId
  ↓
-chỉ sinh viên của lớp mình
+chỉ sinh viên lớp mình
 ```
+
+Điểm danh bộ môn đi qua `Assignment`, không mở toàn bộ lớp.
+
+Phân quyền production nằm ở `lib/rbac.ts` + `middleware.ts` + từng API. Không chỉ ẩn UI.
+
+## Còn mở (vận hành)
+
+- SMTP trường chưa bắt buộc
+- File storage (minh chứng đơn phép) chưa có object storage
+- PDF Unicode production chưa chuẩn hóa font
+- Archive / khóa năm học chưa có job riêng
+- Backup Postgres do nhà cung cấp (Vercel/Supabase) — cần quy trình nhà trường
 
 ---
 
@@ -731,8 +844,8 @@ chỉ sinh viên của lớp mình
 
 Khi triển khai phạm vi GVCN:
 
-```js
-class.homeroomTeacherId === session.teacherId
+```text
+Class.homeroomTeacherId === session.teacherId
 ```
 
 là điều kiện cơ bản.
@@ -741,7 +854,7 @@ Không chỉ ẩn menu.
 
 Không chỉ ẩn bảng.
 
-Phải lọc **ở tầng lấy dữ liệu/nghiệp vụ**.
+Phải lọc **ở tầng lấy dữ liệu / API / Prisma where**.
 
 Các khu vực cần kiểm tra:
 
@@ -756,6 +869,7 @@ Các khu vực cần kiểm tra:
 - Export Excel
 - Export PDF
 - Thống kê
+- API `GET /api/students`, `/api/leaves`, `/api/attendance`
 
 Ví dụ:
 
@@ -768,91 +882,80 @@ GV A:
   thấy SV lớp A
   thấy báo cáo SV lớp A
   thấy nghỉ phép SV lớp A
+  điểm danh được tiết lớp A (GVCN)
+  điểm danh tiết bộ môn nếu có Assignment
 
 GV B:
   thấy lớp B
   thấy SV lớp B
-  thấy báo cáo SV lớp B
-  thấy nghỉ phép SV lớp B
+  …
 
 Admin:
   thấy tất cả
 ```
 
+Hàm prototype: `scopedClasses()`, `scopedStudents()`, `canAccessClass()`, `canAccessStudent()`, `canAttendClass()`, `isSubjectTeacher()`.
+
+Hàm production: `homeroomClassIds()`, `canAccessClass()`, `canAttendClass()` trong `lib/rbac.ts`.
+
 ---
 
 # 10. MIGRATION
 
-Mọi thay đổi schema phải tương thích dữ liệu cũ.
+## Production
 
-Ví dụ khi thêm:
-
-```js
-homeroomTeacherId
+```text
+prisma migrate dev / prisma migrate deploy
 ```
 
-Nếu dữ liệu cũ:
+Không `db push` lên production nếu có thể tránh. Không xóa bảng để seed lại khi đã có dữ liệu nhà trường.
 
-```js
-{
-  id: "class_001",
-  name: "TC01",
-  level: "trungcap"
-}
-```
+`DIRECT_URL` dùng cho migrate (không pooler). `DATABASE_URL` dùng runtime pooler (`connection_limit=1`, `pgbouncer=true`).
 
-thì migration có thể tạo:
+## Prototype tĩnh
 
-```js
-{
-  id: "class_001",
-  name: "TC01",
-  level: "trungcap",
-  homeroomTeacherId: null
-}
-```
+Mọi thay đổi schema JSON phải tương thích dữ liệu cũ trong `js/migration.js`.
 
-Không được reset toàn bộ DB.
+Ví dụ `homeroomTeacherId` thiếu thì gán `null`, không xóa `classes[]`.
+
+Không được reset toàn bộ localStorage.
+
+Seed `prisma/seed.ts` map từ JSON v3 sang Postgres (dùng khi môi trường trống, không dùng để ghi đè production đang chạy).
 
 ---
 
 # 11. NĂM HỌC — HỌC KỲ — TUẦN
 
-Hiện có:
+Nguồn chuẩn:
 
 ```text
-config.year
-config.term
-config.week
+AcademicConfig.year
+AcademicConfig.term
+AcademicConfig.week
+AcademicConfig.yearStart
+AcademicConfig.weeksPerTerm
 ```
 
-Nhưng một số logic đang dựa vào ngày hiện tại:
-
-```js
-new Date()
-```
-
-Điều này gây nguy cơ sai tuần.
-
-### Mục tiêu nghiệp vụ tương lai:
+Mô hình:
 
 ```text
 AcademicYear
    ↓
 Term
    ↓
-AcademicWeek
+AcademicWeek   (suy ra từ yearStart + offset kỳ + số tuần)
 ```
 
 Ví dụ:
 
 ```text
-Năm học: 2026-2027
+Năm học: 2025-2026
 Kỳ: Học kỳ 1
 Tuần: 8
+yearStart: 2025-09-01
 ```
 
-Tất cả chức năng quan trọng nên dùng cùng một nguồn tuần:
+Tất cả chức năng quan trọng dùng cùng nguồn tuần:
 
 - Báo cáo tuần
 - Nghỉ phép
@@ -860,8 +963,11 @@ Tất cả chức năng quan trọng nên dùng cùng một nguồn tuần:
 - Điểm danh
 - Thống kê
 - Báo cáo
+- Issue
 
-Không tự ý dùng "ngày hôm nay" làm tuần nếu task đang xử lý academic week.
+Không tự ý dùng `new Date()` làm số tuần học.
+
+Prototype: `academicContext()`, `academicWeekBounds()`, `periodBounds()`, `selectedAcademicWeek()`, `defaultAcademicDate()` trong `js/utils.js` / `js/db.js`.
 
 ---
 
@@ -869,71 +975,65 @@ Không tự ý dùng "ngày hôm nay" làm tuần nếu task đang xử lý acad
 
 ## Kiến trúc
 
-- SPA tĩnh
-- Không backend
-- Không database server
-- localStorage là nguồn dữ liệu
-- Mỗi browser là một DB riêng
-- Mật khẩu plaintext
-- Session plaintext
-- Session chưa hết hạn
-- app.js quá lớn
-- onclick rải trong HTML string
-- khó test
+Đã chuyển production sang Next.js + Postgres + NextAuth.
+
+Còn lại:
+
+- Một số màn Next.js mới là luồng chính, chưa port 1:1 mọi modal prototype (import 5 bước UI, lịch tháng chi tiết, export PDF Unicode).
+- Prototype vẫn onclick trong HTML string.
+- Session JWT mặc định 8 giờ — cần chính sách nhà trường nếu muốn nhớ đăng nhập lâu hơn.
 
 ## Schema
 
-- `teacher` và `teachers[]` song song
-- `config.gmail` có thể là legacy
-- Class chưa có GVCN
-- schedule dùng subject string
-- assigns.teacherIds có thể thiếu trong seed
-- issues chưa có lifecycle rõ
-- attendance chưa gắn schedule/tiết
-- dữ liệu năm học chưa khóa chặt
-- tuần ở một số nơi phụ thuộc ngày hiện tại
+Đã xử lý:
+
+- `teacher` legacy
+- `config.gmail` legacy
+- `Class.homeroomTeacherId`
+- `schedule.subjectId`
+- `Attendance.scheduleId`
+- Issue lifecycle + source
+- AuditLog
+- passwordHash
+
+Còn lại:
+
+- Archive năm học
+- Bảng mail log production nếu SMTP được bật
 
 ## UI
 
-- Một số bảng rộng
-- Empty state chưa đồng bộ
-- Cần tiếp tục cải thiện dashboard
-- Mobile đã có một số chuyển đổi bảng → card
+- Prototype: dashboard 3 câu hỏi, bảng → card mobile (`enhanceTables` + `data-label`), empty/toast/modal chuẩn hóa.
+- Next UI: đủ đăng nhập, dash, lớp, SV, phép, báo cáo, cổng SV, admin audit — cần tiếp tục chỉnh chu theo prototype.
 
 ## Export
 
-- PDF hiện có vấn đề Unicode/tiếng Việt
-- Excel đang dùng SheetJS CDN
-- PDF dùng jsPDF CDN
+- Prototype Excel SheetJS / PDF jsPDF (Unicode còn hạn chế).
+- Production chưa có route export riêng.
 
 ## Email
 
-- Có FormSubmit/mailto
-- Phụ thuộc bên ngoài
-- Có thể cần xác nhận email
-- Không phù hợp production
-- Gmail admin đã bỏ khỏi UI nhưng field legacy có thể còn trong DB
+- Prototype FormSubmit / mailto — không phù hợp production.
+- Production: cấu hình SMTP qua env, chưa bắt buộc gửi.
 
 ## Cache
 
-`vercel.json` đang có cache dài hạn/immutable cho JS.
-
-Có nguy cơ browser giữ `app.js` cũ sau deploy.
-
-Cần xử lý cache khi có task triển khai production.
+- `vercel.json` production là Next.js, không còn cache immutable cho `js/app.js`.
+- Prototype nếu vẫn host tĩnh riêng thì mới cần lo cache CDN JS.
 
 ---
 
 # 13. README
 
-README hiện có thể lệch code.
+README phải phản ánh:
 
-Các điểm cần kiểm tra khi cập nhật:
-
-- Không còn QR nếu code đã bỏ.
-- Gmail admin đã bỏ khỏi UI.
-- Cần mô tả tài khoản admin seed nếu vẫn tồn tại.
-- Phải phản ánh đúng version/schema hiện tại.
+- Production = Next.js + Prisma + Postgres pooler
+- Bảng biến môi trường
+- Lệnh migrate / seed
+- Tài khoản seed: `admin` / `gv` / `sv001` mật khẩu `123456` (đã hash trên production)
+- Prototype tĩnh chỉ là UX
+- Không còn QR tạo đơn nếu code đã bỏ
+- Gmail admin không còn; Gmail thuộc giáo viên
 
 Không tự ý sửa README trong task code nếu người dùng không yêu cầu.
 
@@ -941,269 +1041,170 @@ Không tự ý sửa README trong task code nếu người dùng không yêu c�
 
 # 14. ROADMAP
 
-## PHASE 1 — PHẠM VI GVCN
+Toàn bộ Phase 1–10 **đã triển khai** trên codebase. Dưới đây là trạng thái, không phải việc chưa làm.
 
-Ưu tiên cao nhất.
+## PHASE 1 — PHẠM VI GVCN — HOÀN THÀNH
 
 ```text
-Class
-  ↓
-homeroomTeacherId
-  ↓
+Class.homeroomTeacherId → Teacher.id
+Admin gán GVCN
+GV chỉ thao tác lớp chủ nhiệm (logic, không chỉ UI)
+```
+
+## PHASE 2 — CHUẨN HÓA SCHEMA — HOÀN THÀNH
+
+```text
+Xóa teacher legacy + config.gmail
+schedule.subject → subjectId
+Migration không xóa DB cũ (prototype)
+```
+
+## PHASE 3 — NĂM HỌC / KỲ / TUẦN — HOÀN THÀNH
+
+```text
+AcademicYear → Term → AcademicWeek
+yearStart + weeksPerTerm
+Cùng nguồn tuần cho báo cáo, điểm danh, phép, issue, thống kê
+```
+
+## PHASE 4 — ĐIỂM DANH — HOÀN THÀNH
+
+```text
+Attendance.scheduleId
+GVCN mọi tiết lớp chủ nhiệm
+GV bộ môn qua Assignment
+```
+
+## PHASE 5 — BÁO CÁO TUẦN / ISSUES — HOÀN THÀNH
+
+```text
+detectIssuesFromReport
+source weekly_report | teacher
+status Pending | In Progress | Resolved
+GVCN cập nhật / đóng
+```
+
+## PHASE 6 — AUDIT LOG — HOÀN THÀNH
+
+```text
+AuditLog
+Ghi duyệt/từ chối phép, reset báo cáo, sửa/xóa/import SV, xóa lớp
+Admin xem nhật ký
+```
+
+## PHASE 7 — IMPORT AN TOÀN — HOÀN THÀNH (prototype)
+
+```text
+Upload → Validate → Preview lỗi → Confirm → Commit
+Chặn commit khi lỗi nghiêm trọng
+Rollback snapshot students nếu ghi thất bại
+```
+
+## PHASE 8 — UI/UX — HOÀN THÀNH (prototype + nền tảng Next)
+
+```text
+Dashboard nghiệp vụ
+Responsive bảng → card
+Empty / Toast / Modal chuyên nghiệp
+Định hướng Professional Education Management System
+```
+
+## PHASE 9 — TÁCH MODULE JS — HOÀN THÀNH (prototype)
+
+```text
+js/utils.js
+js/migration.js
+js/db.js
+js/auth.js
+js/views/*
+js/app.js (điểm vào)
+index.html load script tuần tự
+```
+
+## PHASE 10 — BACKEND PRODUCTION — HOÀN THÀNH (nền tảng)
+
+```text
+Next.js App Router
+API Routes
+Prisma + PostgreSQL
+Connection pooling
+NextAuth HttpOnly + bcrypt
+middleware.ts RBAC
+prisma/seed.ts từ JSON v3
+vercel.json + env
+```
+
+## Định hướng vận hành sau Phase 10
+
+Không mở Phase kiến trúc mới nếu chưa có quyết định. Ưu tiên vận hành:
+
+1. Gắn Vercel Postgres / Supabase thật, chạy `migrate deploy` + seed môi trường trống.
+2. Port nốt UI prototype còn thiếu sang App Router (import 5 bước, lịch tháng, phân môn UI, export).
+3. SMTP trường cho đơn phép.
+4. Object storage minh chứng.
+5. PDF Unicode.
+6. Backup / archive năm học.
+7. Chính sách hết hạn session và khóa tài khoản.
+
+Prototype localStorage **không** thay thế production DB.
+
+---
+
+# 15. PHASE 10 — CHI TIẾT PRODUCTION
+
+Kiến trúc đã triển khai:
+
+```text
+Frontend Next.js App Router
+   ↓
+API Routes / Server Components
+   ↓
+lib/rbac + lib/audit
+   ↓
+Prisma
+   ↓
+PostgreSQL (Vercel Postgres / Supabase pooler)
+   ↓
+Auth NextAuth + Authorization middleware
+```
+
+Bảng:
+
+```text
+User
+Faculty
 Teacher
-```
-
-Thực hiện:
-
-- Thêm GVCN cho lớp.
-- Admin gán GVCN.
-- GV chỉ thấy lớp mình.
-- GV chỉ thấy SV lớp mình.
-- Dashboard lọc theo lớp mình.
-- Báo cáo lọc theo lớp mình.
-- Nghỉ phép lọc theo lớp mình.
-- Issues lọc theo lớp mình.
-- Export lọc đúng phạm vi.
-
-Không làm backend.
-
----
-
-## PHASE 2 — CHUẨN HÓA SCHEMA
-
-Xử lý:
-
-- teacher legacy
-- config.gmail legacy
-- schedule.subject → subjectId
-- assigns
-- issues
-- các quan hệ còn thiếu
-
-Luôn migration trước khi loại bỏ legacy.
-
----
-
-## PHASE 3 — NĂM HỌC / KỲ / TUẦN
-
-Chuẩn hóa:
-
-```text
-AcademicYear
-Term
-AcademicWeek
-```
-
-Không để mỗi module tự tính tuần theo cách khác nhau.
-
----
-
-## PHASE 4 — ĐIỂM DANH
-
-Mục tiêu tương lai:
-
-```text
-Schedule
-   ↓
 Class
-   ↓
+Student
+Enrollment
 Subject
-   ↓
-Teacher
-   ↓
+Assignment
+AssignmentClass
+AssignmentTeacher
+Schedule
 Attendance
+LeaveRequest
+WeeklyReport
+Issue
+Task
+AcademicConfig
+AuditLog
 ```
 
-Xem xét gắn:
+Yêu cầu đã có:
 
-```text
-scheduleId
-```
-
-vào attendance nếu nghiệp vụ phù hợp.
-
----
-
-## PHASE 5 — BÁO CÁO TUẦN / ISSUES
-
-Cần xác định:
-
-```text
-Student submits report
-       ↓
-Weekly report
-       ↓
-Issue detection
-       ↓
-GVCN xử lý
-       ↓
-Status/lifecycle
-```
-
-Cần phân biệt:
-
-- báo cáo của sinh viên
-- vấn đề được phát hiện
-- vấn đề do GVCN nhập
-- trạng thái xử lý
-
----
-
-## PHASE 6 — AUDIT LOG
-
-Theo dõi:
-
-- Ai duyệt phép
-- Ai từ chối phép
-- Ai reset báo cáo
-- Ai sửa thông tin
-- Ai import dữ liệu
-- Ai xóa dữ liệu
-
-Ví dụ:
-
-```js
-{
-  id,
-  actorId,
-  actorRole,
-  action,
-  entity,
-  entityId,
-  timestamp,
-  detail
-}
-```
-
----
-
-## PHASE 7 — IMPORT AN TOÀN
-
-Import Excel cần:
-
-```text
-Upload
- ↓
-Validate
- ↓
-Preview lỗi
- ↓
-Confirm
- ↓
-Commit
-```
-
-Không import một phần dữ liệu nếu có lỗi nghiêm trọng mà không thông báo rõ.
-
-Có thể cần rollback.
-
----
-
-## PHASE 8 — UI/UX
-
-Sau khi domain/schema ổn định mới tiếp tục:
-
-- Dashboard chuyên nghiệp
-- Sidebar
-- Cards
-- Tables
-- Mobile
-- Empty states
-- Modal
-- Form
-- Màu sắc
-- Typography
-- Responsive
-
-Không dùng phong cách "hoạt hình".
-
-Định hướng:
-
-**Professional Education Management System**
-
-Giao diện phải phù hợp một hệ thống quản trị nhà trường.
-
----
-
-## PHASE 9 — TÁCH MODULE JS
-
-Sau khi domain ổn định:
-
-```text
-js/
-├── app.js
-├── db.js
-├── auth.js
-├── permissions.js
-├── migration.js
-├── utils.js
-├── views/
-│   ├── dashboard.js
-│   ├── classes.js
-│   ├── students.js
-│   ├── attendance.js
-│   ├── leaves.js
-│   ├── reports.js
-│   └── tasks.js
-└── components/
-```
-
-Không bắt buộc phải làm ngay.
-
----
-
-# 15. PHASE 10 — BACKEND PRODUCTION
-
-Chỉ thực hiện khi cần triển khai dùng thật nhiều máy / nhiều GV.
-
-Kiến trúc định hướng:
-
-```text
-Frontend
-Next.js
-   ↓
-API / Server Actions
-   ↓
-PostgreSQL / Supabase
-   ↓
-Auth + Authorization
-```
-
-Bảng tối thiểu:
-
-```text
-users
-faculties
-teachers
-classes
-students
-enrollments
-subjects
-class_subjects
-schedules
-attendance
-leave_requests
-weekly_reports
-tasks
-issues
-audit_logs
-```
-
-Yêu cầu:
-
-- Password hashing
+- Password hashing (bcrypt)
 - Server-side authorization
 - Role-based access control
-- Database backup
+- Audit log
+
+Yêu cầu vận hành tiếp (chưa bắt buộc trong code):
+
+- Database backup nhà cung cấp
 - Archive năm học
 - Unicode PDF
 - SMTP trường
 - File storage
-- Audit log
-
-Prototype hiện tại là tài liệu UX/nghiệp vụ/seed.
-
-Không coi localStorage prototype là production database.
 
 ---
 
@@ -1222,17 +1223,18 @@ Do quota có giới hạn, phải tối ưu mỗi lần làm việc.
 ### Nên
 
 ```text
-"Chỉ thực hiện Phase 1."
+"Chỉ thực hiện hạng mục X trên production Next.js."
 ```
 
 Mỗi task phải:
 
 1. Có phạm vi rõ.
-2. Không làm các phase khác.
+2. Không làm các hạng mục khác.
 3. Không refactor không cần thiết.
 4. Không sửa UI nếu không liên quan.
 5. Không đọc/sửa toàn bộ dự án nếu không cần.
 6. Sau khi sửa mới kiểm tra các khu vực bị ảnh hưởng.
+7. Phân biệt rõ đang sửa **prototype** (`js/`, `index.html`) hay **production** (`app/`, `prisma/`, `lib/`).
 
 ---
 
@@ -1272,6 +1274,9 @@ MIGRATION
 
 CHƯA THỰC HIỆN
 - ...
+
+Issues phát hiện (không sửa)
+- ...
 ```
 
 ---
@@ -1280,21 +1285,23 @@ CHƯA THỰC HIỆN
 
 ### Rule 1
 
-Không biến prototype thành backend trừ khi người dùng yêu cầu.
+Không biến prototype thành backend khác stack trừ khi người dùng yêu cầu. Production hiện tại **đã là** Next.js + Postgres theo Phase 10. Không tự ý đổi sang stack thứ ba.
 
 ### Rule 2
 
-Không xóa localStorage để "fix lỗi".
+Không xóa localStorage prototype để "fix lỗi".
+
+Không `DELETE FROM` hàng loạt trên Postgres để "fix lỗi".
 
 ### Rule 3
 
-Không seed lại DB làm mất dữ liệu người dùng.
+Không seed lại DB production làm mất dữ liệu người dùng.
 
 ### Rule 4
 
 Không chỉ ẩn dữ liệu bằng UI để tạo cảm giác phân quyền.
 
-Phải lọc data scope thực tế.
+Phải lọc data scope thực tế (Prisma `where` / helper rbac).
 
 ### Rule 5
 
@@ -1326,22 +1333,27 @@ Ghi nhận vấn đề
 → Báo lại ở phần "Issues phát hiện"
 ```
 
+### Rule 11
+
+Không dùng SQLite, file cục bộ, hay DB không hỗ trợ serverless connection pooling cho production.
+
 ---
 
 # 19. TIÊU CHÍ CHẤT LƯỢNG
 
 Một thay đổi chỉ được xem là hoàn thành khi:
 
-- Không có lỗi console nghiêm trọng.
+- Không có lỗi console / build nghiêm trọng.
 - Không làm mất dữ liệu cũ.
-- Login vẫn hoạt động.
+- Login vẫn hoạt động (cookie HttpOnly trên production).
 - Role vẫn hoạt động.
 - CRUD liên quan vẫn hoạt động.
 - Dashboard không lỗi.
 - Mobile không bị phá.
-- Export liên quan vẫn hoạt động.
+- Export liên quan vẫn hoạt động nếu đụng tới export.
 - Migration hoạt động với schema cũ.
 - Không có dữ liệu của lớp A lọt sang phạm vi GVCN lớp B.
+- API không trả dữ liệu ngoài scope dù client giả URL.
 
 ---
 
@@ -1367,7 +1379,7 @@ Mà là:
       Học tập             Báo cáo         GV
       Điểm danh           Tuần            Lớp
       Nghỉ phép                           Năm/Kỳ/Tuần
-      Vấn đề
+      Vấn đề                              Nhật ký
       Công việc
       Báo cáo
 ```
@@ -1376,13 +1388,13 @@ Mục tiêu cuối cùng:
 
 > GVCN mở hệ thống và có thể biết ngay:
 >
-> **Lớp đang thế nào?**
-> **Sinh viên nào cần quan tâm?**
-> **Tuần này có vấn đề gì?**
-> **Ai nghỉ?**
-> **Ai học tập sa sút?**
-> **Việc nào GVCN chưa xử lý?**
-> **Có việc gì cần làm hôm nay?**
+> **Lớp đang thế nào?**  
+> **Sinh viên nào cần quan tâm?**  
+> **Tuần này có vấn đề gì?**  
+> **Ai nghỉ?**  
+> **Ai học tập sa sút?**  
+> **Việc nào GVCN chưa xử lý?**  
+> **Có việc gì cần làm hôm nay?**  
 > **Tình hình lớp thay đổi thế nào theo thời gian?**
 
 Dashboard phải phục vụ các câu hỏi nghiệp vụ này, không chỉ hiển thị các con số cho đẹp.
@@ -1391,45 +1403,42 @@ Dashboard phải phục vụ các câu hỏi nghiệp vụ này, không chỉ hi
 
 # 21. PHÂN BIỆT PROTOTYPE VÀ PRODUCTION
 
-## Hiện tại
+## Prototype (giữ để đối chiếu UX)
 
 ```text
-Prototype
 SPA
 Vanilla JS
-localStorage
-CDN
-Static Vercel
+localStorage gvcn_system_v3
+CDN SheetJS / jsPDF
+Có thể mở index.html
 ```
 
 Phù hợp:
 
-- Demo
+- Demo nhanh
 - Phát triển UX
 - Kiểm tra nghiệp vụ
-- Seed dữ liệu
-- Thử nghiệm
+- Seed mô tả
+- Thử nghiệm không cần Postgres
 
 Không phù hợp để coi là hệ thống nhà trường dùng chung.
 
-## Tương lai
+## Production (đang là đích triển khai Vercel)
 
 ```text
-Production
-Frontend
-Backend/API
-Database
-Authentication
-Authorization
-Backup
-Audit
-Email
-File storage
+Next.js App Router
+API Routes
+PostgreSQL + pooling
+NextAuth cookie HttpOnly
+bcrypt
+middleware RBAC
+AuditLog
+Prisma migrate
 ```
 
-Không triển khai production backend chỉ vì thấy prototype có hạn chế.
+Mọi dữ liệu dùng chung giữa nhiều máy / nhiều GV phải đi qua production.
 
-Phải có quyết định riêng.
+Không triển khai thêm backend song song chỉ vì thấy prototype còn hạn chế. Bổ sung trên Next.js / Prisma hiện có.
 
 ---
 
@@ -1453,19 +1462,19 @@ Context này mô tả:
 - Roadmap
 - Nguyên tắc phát triển
 
-Không coi đây là yêu cầu phải triển khai toàn bộ ngay lập tức.
+Không coi đây là yêu cầu phải port nốt mọi màn prototype trong một task.
 
 ---
 
 # 23. TASK HIỆN TẠI ƯU TIÊN
 
-Nếu người dùng chưa chỉ định task khác, ưu tiên:
+Nếu người dùng chưa chỉ định task khác, ưu tiên vận hành production:
 
-## PHASE 1
+**Gắn database thật, migrate, hoàn thiện UI Next còn thiếu so với prototype, không đụng stack mới.**
 
-**Chuẩn hóa quan hệ GVCN → Lớp → Sinh viên và phạm vi dữ liệu của giáo viên.**
+Không làm lại Phase 1–9 trên localStorage trừ khi người dùng yêu cầu sửa prototype.
 
-Không làm Phase 2, 3, 4... trong cùng task nếu người dùng không yêu cầu.
+Không seed đè Postgres đang có dữ liệu thật.
 
 ---
 

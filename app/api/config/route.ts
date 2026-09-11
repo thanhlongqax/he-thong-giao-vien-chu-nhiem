@@ -1,10 +1,18 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole, requireSession } from "@/lib/rbac";
+import { ACADEMIC_CONFIG_KEY, ACADEMIC_CONFIG_TTL, redis } from "@/lib/redis";
 
 export async function GET() {
   await requireSession();
+  if (redis) {
+    const cached = await redis.get(ACADEMIC_CONFIG_KEY);
+    if (cached) return NextResponse.json(cached);
+  }
   const cfg = await prisma.academicConfig.findUnique({ where: { id: "current" } });
+  if (cfg && redis) {
+    await redis.set(ACADEMIC_CONFIG_KEY, cfg, { ex: ACADEMIC_CONFIG_TTL });
+  }
   return NextResponse.json(cfg);
 }
 
@@ -27,5 +35,8 @@ export async function PUT(req: Request) {
       yearStart: new Date(body.yearStart || "2025-09-01")
     }
   });
+  if (redis) {
+    await redis.set(ACADEMIC_CONFIG_KEY, cfg, { ex: ACADEMIC_CONFIG_TTL });
+  }
   return NextResponse.json(cfg);
 }
